@@ -1,11 +1,1 @@
-fix: 健康检查 IPC 返回格式 + 对话智能滚动
-
-1. provider:health IPC 在指定 providerId 时返回单对象,
-   但设置页按 results[id] 取值导致取到 undefined → 显示失败。
-   修正为始终返回 Record<id, HealthStatus>。
-
-2. ChatPanel 智能滚动跟随:
-   - 新消息自动滚到底(默认开启)
-   - 用户上滑超过阈值 → 暂停自动滚动
-   - 滑回底部 → 恢复自动跟随
-   - 暂停时显示浮动"↓ 最新"按钮
+chore: remove temp commit message file, add to gitignore
