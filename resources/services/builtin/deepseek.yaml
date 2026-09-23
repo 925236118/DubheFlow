@@ -1,0 +1,109 @@
+# DeepSeek 服务清单
+# 对齐设计 §8.10 ①:远程、带 key、OpenAI 兼容接口
+# 接入一次 → coding / text / vision / reasoning 节点全部可用
+manifest_version: 1
+id: deepseek
+name: DeepSeek
+version: 1.0.0
+description: 代码 / 文本生成、视觉理解、深度推理(OpenAI 兼容接口)
+locality: remote
+min_app_version: 0.0.0
+
+auth:
+  type: api_key
+  fields:
+    - { key: api_key, label: API Key, secret: true, required: true, placeholder: sk-... }
+
+health:
+  adapter: openai_chat
+  request:
+    model: deepseek-chat
+    messages:
+      - { role: user, content: "ping" }
+    max_tokens: 1
+  on_fail: degrade
+
+nodes:
+  # 代码 / 文本生成(deepseek-chat, V3)
+  - type: gen_text
+    capability: coding
+    label: 代码/文本生成
+    description: 调用 deepseek-chat 生成代码或文本
+    adapter: openai_chat
+    adapter_config:
+      model: deepseek-chat
+      base_url: https://api.deepseek.com
+    args:
+      prompt: { type: string, required: true, widget: textarea }
+      temperature: { type: number, default: 0.0, min: 0.0, max: 2.0, widget: slider }
+      max_tokens: { type: integer, default: 4096, min: 1, max: 8192 }
+      json: { type: boolean, default: false }
+    outputs:
+      text: { type: string }
+    cost:
+      model: per_token
+      input: 0.27
+      output: 1.10
+      currency: USD
+      per: 1000000
+    exec:
+      mode: sync
+      timeout_seconds: 300
+      parallel_safe: true
+      idempotent: true
+      approval: none
+
+  # 视觉理解(deepseek-chat 支持图片输入)
+  - type: vision
+    capability: vision
+    label: 视觉理解
+    description: 让模型看懂图片/视频(验证、审美术)
+    adapter: openai_chat
+    adapter_config:
+      model: deepseek-chat
+      base_url: https://api.deepseek.com
+      image_field: image_url
+    args:
+      image: { type: file, required: true }
+      prompt: { type: string, required: true, widget: textarea }
+    outputs:
+      text: { type: string }
+    cost:
+      model: per_token
+      input: 0.27
+      output: 1.10
+      currency: USD
+      per: 1000000
+    exec:
+      mode: sync
+      timeout_seconds: 120
+      parallel_safe: true
+      approval: none
+
+  # 深度推理(deepseek-reasoner, R1)
+  - type: gen_text
+    capability: reasoning
+    label: 深度推理
+    description: 调用 deepseek-reasoner 做复杂推理
+    adapter: openai_chat
+    adapter_config:
+      model: deepseek-reasoner
+      base_url: https://api.deepseek.com
+    args:
+      prompt: { type: string, required: true, widget: textarea }
+      temperature: { type: number, default: 0.0, min: 0.0, max: 2.0, widget: slider }
+      max_tokens: { type: integer, default: 8192, min: 1, max: 65536 }
+    outputs:
+      text: { type: string }
+    cost:
+      model: per_token
+      input: 0.55
+      output: 2.19
+      currency: USD
+      per: 1000000
+    exec:
+      mode: sync
+      timeout_seconds: 600
+      parallel_safe: true
+      idempotent: true
+      approval: none
