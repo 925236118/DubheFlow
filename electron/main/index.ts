@@ -5,6 +5,7 @@ import { registerProviderIpc } from './ipc/providers'
 import { getAppPaths } from './paths'
 import { seedBuiltinManifests, loadManifests } from './providers/manifest-loader'
 import { registry } from './providers/registry'
+import { getDb, closeDb } from './db/database'
 
 // 单实例锁:防止多开
 const gotTheLock = app.requestSingleInstanceLock()
@@ -36,7 +37,14 @@ app.whenReady().then(() => {
   registerIpcHandlers()
   registerProviderIpc()
 
-  // 5. 创建窗口
+  // 5. 初始化 SQLite(WAL + 迁移,主进程独占句柄)
+  try {
+    getDb()
+  } catch (err) {
+    console.error('[db] 数据库初始化失败,降级运行(无持久化):', err)
+  }
+
+  // 6. 创建窗口
   createWindow()
 })
 
@@ -50,10 +58,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-// 随工作台关闭而关闭:预留 will-quit 清理钩子
-// (后续在这里清理 llama-server、headless Godot 等子进程)
+// 随工作台关闭而关闭:清理子进程 + 关闭数据库句柄
 app.on('will-quit', () => {
-  // TODO: 清理子进程、关闭句柄
+  closeDb()
+  // TODO: 清理 llama-server、headless Godot 等子进程
 })
 
 // 外部链接用系统浏览器打开,不在应用内导航

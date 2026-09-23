@@ -1,19 +1,24 @@
-feat: Provider 适配器架构重构 + UI 改进
+feat: SQLite 持久化 + Spec/原语注册表/数据流/校验器 (Phase 2-3)
 
-== Provider 适配器架构 ==
-- 新增 adapters/ 层:协议级 HTTP 客户端,每种 API 格式一个
-  - openai_chat: OpenAI Chat Completions(SSE 流式)
-  - openai_responses: OpenAI Responses API(response.output_text.delta)
-  - anthropic: Anthropic Messages API(x-api-key + content_block_delta)
-  - http_job: 异步任务(提交→轮询→取结果,MiniMax 图/视/音)
-- 共享 http-utils:重试/超时/令牌桶/SSE 解析
-- 通用 ManifestProvider:按 manifest 的 adapter 字段委托给适配器
-  接入一个服务 = 一份 YAML,代码零改动
-- DeepSeek / MiniMax 均为纯 manifest 驱动,无自定义 Provider 类
-- manifest 种子化改为总是覆盖内置(随工作站更新)
+Phase 2 — SQLite 持久化:
+- database.ts: 单例句柄,WAL + busy_timeout,主进程独占
+  better-sqlite3 native 模块用 createRequire 惰性加载(避免 ESM 崩溃)
+  v13 与 Electron 31(Node 20)ABI 不兼容,降级至 v11
+- migrations.ts: 版本递增迁移,事务包裹
+- schema.ts: 完整建表(project/conversation/message/workflow/
+  workflow_revision/run/step_run/model_call/tool_call/approval/
+  artifact/rollback)
+- 主进程启动时初始化,will-quit 时关闭
 
-== UI 改进 ==
-- 全局窄滚动条(6px,hover 加深)
-- 输入框自适应:最小 3 行,最大 6 行,超出滚动
-- 对话失败处理:红色错误展示 + 重试按钮(移除失败消息重发)
-- 健康检查 IPC 返回格式修正(始终 Record<id, status>)
+Phase 3 — Spec 与原语注册表:
+- spec/types.ts: WorkflowSpec/SpecNode/SpecEdge/Budget 等
+  spec 写 capability 不写模型名(运行时路由)
+- spec/primitives.ts: 18 个内置原语(collect/require/approve/
+  llm_generate/classify/extract/split/fanout/join/assemble/branch/
+  loop/rollback_to/tool_call/apply_change/godot_check/run_test/verify)
+  Planner 只能组合注册表内原语,不能发明新节点
+- spec/dataflow.ts: {{ }} 文本插值 + $ref 整体引用 + 三类命名空间
+  (ALL_CAPS 全局 / input.* 输入 / node.output 节点产出)
+  + 内置全局变量表 + input_hash 计算(引用解析后)
+- spec/validator.ts: 静态校验(未注册类型/不存在边/预算缺失/
+  必填参数/死循环/不可达/审批绕过/未定义引用)
