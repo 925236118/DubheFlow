@@ -99,6 +99,17 @@ interface DubheApi {
       onError: (error: string) => void
     ) => () => void
   }
+
+  git: {
+    status: (projectPath: string) => Promise<{
+      isRepo: boolean
+      branch: string | null
+      clean: boolean
+    }>
+    diff: (projectPath: string, commit?: string) => Promise<string>
+    diffStat: (projectPath: string, commit?: string) => Promise<string>
+    branches: (projectPath: string) => Promise<string[]>
+  }
 }
 
 interface Window {

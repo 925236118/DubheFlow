@@ -1,21 +1,24 @@
-feat: Planner 工作流生成 + Interpreter 工作流执行器 (Phase 4-5)
+feat: Git 快照 + React Flow 可视化画布 (Phase 6-7)
 
-Phase 4 — Planner(规划层):
-- planner.ts: 从原语注册表自动生成系统提示
-  (每个原语 schema + 描述 + 可用 capability + 全局变量 + 数据流语法)
-- generateSpec(): 调模型生成 spec JSON → 容错解析(去 markdown/提取 {})
-  → 静态校验 → 不过则带错误重试(max_retries)
-- 生成成功后存入 DB(workflow + workflow_revision 草稿态)
-- IPC: planner:generate
+Phase 6 — 项目文件快照(git):
+- vcs/git.ts: GitOps 类,用 child_process spawn git
+  - isRepo/init/getHead/getCurrentBranch/isClean
+  - createRunBranch(commit agent/run_<id>)/deleteBranch
+  - commitStep(每步一个 commit)/tag(检查点锚点)
+  - diff/diffStat(git diff 三重用途:验证/审批/回退)
+  - revert(保留历史)/checkoutFile(选择性回退)
+  - listAgentBranches
+- IPC: git:status / git:diff / git:diffStat / git:branches
+- 铁律:永远不对用户分支 git reset --hard
 
-Phase 5 — Interpreter(执行层):
-- interpreter.ts: 读 spec → 拓扑排序(Kahn) → 逐节点执行
-  - 数据流解析:每步执行前 deepInterpolate({{ }} + $ref)
-  - llm_generate: 调 provider 流式生成,产出 text/patch
-  - verify: 规则优先(退出码/stderr grep/文件存在/空输出)
-  - collect/require/approve/assemble/split: 基础桩
-- 每步写 step_run 到 DB,模型调用写 model_call
-- 运行事件流式推送(step_start/delta/done/failed/verify/run_done)
-- 支持取消(AbortController)
-- IPC: interpreter:run(流式) + interpreter:cancel
-- preload 暴露 spec.generate / spec.run API
+Phase 7 — 可视化画布(React Flow):
+- @xyflow/react (React Flow v12) 接入
+- src/Canvas.tsx: 只读画布,渲染 spec 节点与边
+  - BFS 自动布局(分层 + 水平偏移)
+  - 自定义节点:类别色条 + 类型 + 标签
+  - 节点状态色:pending灰/running蓝/succeeded绿/failed红/deprecated橙
+  - smoothstep 连线 + fitView
+- App.tsx 集成:对话页右侧实时画布 + 独立画布视图
+  - ⚙ 工作流按钮:ChatPanel 触发 Planner 生成 spec
+  - ▶ 执行按钮:启动 Interpreter,节点状态实时更新
+- 面板操作按钮 + 画布空状态 + RF 主题适配 CSS

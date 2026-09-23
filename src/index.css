@@ -478,10 +478,81 @@ body {
   border-top: 1px solid var(--border);
 }
 
-/* 回到底部浮动按钮 */
-.chat {
-  position: relative;
+/* ===== 面板操作按钮(执行/生成等)===== */
+.panel__action {
+  margin-left: auto;
+  padding: 3px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
+.panel__action:hover {
+  background: var(--accent-soft);
+}
+
+/* ===== 画布 ===== */
+.canvas-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* React Flow 自定义节点 */
+.rf-node {
+  width: 140px;
+  min-height: 50px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  font-size: 12px;
+}
+.rf-node__bar {
+  height: 4px;
+  width: 100%;
+}
+.rf-node__type {
+  padding: 4px 8px 0;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.rf-node__label {
+  padding: 0 8px 6px;
+  font-size: 11px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* React Flow 主题适配 */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__controls {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+}
+.react-flow__controls-button:hover {
+  background: var(--bg-panel);
+}
+.chat { position: relative; }
+
 .chat__jump {
   position: absolute;
   bottom: 64px;

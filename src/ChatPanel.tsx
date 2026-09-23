@@ -13,7 +13,13 @@ const SCROLL_THRESHOLD = 80
 const MIN_TA_HEIGHT = 78
 const MAX_TA_HEIGHT = 138
 
-export default function ChatPanel() {
+export default function ChatPanel({
+  onGenerateWorkflow,
+  generating
+}: {
+  onGenerateWorkflow?: (task: string) => Promise<unknown>
+  generating?: boolean
+}) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -207,9 +213,21 @@ export default function ChatPanel() {
             停止
           </button>
         ) : (
-          <button className="btn btn--primary" onClick={() => send()} disabled={!input.trim()}>
-            发送
-          </button>
+          <>
+            {onGenerateWorkflow && (
+              <button
+                className="btn"
+                onClick={() => onGenerateWorkflow(input.trim())}
+                disabled={!input.trim() || generating}
+                title="用 AI 生成工作流 spec"
+              >
+                {generating ? '生成中…' : '⚙ 工作流'}
+              </button>
+            )}
+            <button className="btn btn--primary" onClick={() => send()} disabled={!input.trim()}>
+              发送
+            </button>
+          </>
         )}
       </div>
     </div>

@@ -149,6 +149,16 @@ const api = {
         ipcRenderer.invoke('interpreter:cancel', runId)
       }
     }
+  },
+
+  // ===== Git 快照 =====
+  git: {
+    status: (projectPath: string) => ipcRenderer.invoke('git:status', projectPath),
+    diff: (projectPath: string, commit?: string) =>
+      ipcRenderer.invoke('git:diff', projectPath, commit),
+    diffStat: (projectPath: string, commit?: string) =>
+      ipcRenderer.invoke('git:diffStat', projectPath, commit),
+    branches: (projectPath: string) => ipcRenderer.invoke('git:branches', projectPath)
   }
 } as const
 
