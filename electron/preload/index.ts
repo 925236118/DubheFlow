@@ -102,6 +102,53 @@ const api = {
       listener(...args)
     ipcRenderer.on(channel, subscription)
     return () => ipcRenderer.removeListener(channel, subscription)
+  },
+
+  // ===== Spec(工作流生成与执行)=====
+  spec: {
+    // Planner:从任务描述生成 spec
+    generate: (task: string) => ipcRenderer.invoke('planner:generate', task),
+
+    // Interpreter:执行 spec(流式事件)
+    run: (
+      options: unknown,
+      onEvent: (event: unknown) => void,
+      onDone: () => void,
+      onError: (error: string) => void
+    ): (() => void) => {
+      const runId = `run_${Date.now()}_${Math.random().toString(36).slice(2)}`
+
+      const eventListener = (
+        _e: Electron.IpcRendererEvent,
+        data: { runId: string; event: unknown }
+      ) => {
+        if (data.runId === runId) onEvent(data.event)
+      }
+      const doneListener = (
+        _e: Electron.IpcRendererEvent,
+        data: { runId: string }
+      ) => {
+        if (data.runId === runId) onDone()
+      }
+      const errorListener = (
+        _e: Electron.IpcRendererEvent,
+        data: { runId: string; error: string }
+      ) => {
+        if (data.runId === runId) onError(data.error)
+      }
+
+      ipcRenderer.on('interpreter:event', eventListener)
+      ipcRenderer.on('interpreter:done', doneListener)
+      ipcRenderer.on('interpreter:error', errorListener)
+      ipcRenderer.invoke('interpreter:run', { options, runId })
+
+      return () => {
+        ipcRenderer.removeListener('interpreter:event', eventListener)
+        ipcRenderer.removeListener('interpreter:done', doneListener)
+        ipcRenderer.removeListener('interpreter:error', errorListener)
+        ipcRenderer.invoke('interpreter:cancel', runId)
+      }
+    }
   }
 } as const
 

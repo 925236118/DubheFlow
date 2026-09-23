@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { createWindow } from './window'
 import { registerIpcHandlers } from './ipc'
 import { registerProviderIpc } from './ipc/providers'
+import { registerSpecIpc } from './ipc/spec'
 import { getAppPaths } from './paths'
 import { seedBuiltinManifests, loadManifests } from './providers/manifest-loader'
 import { registry } from './providers/registry'
@@ -36,6 +37,7 @@ app.whenReady().then(() => {
   // 4. 注册 IPC(系统信息 + Provider)
   registerIpcHandlers()
   registerProviderIpc()
+  registerSpecIpc()
 
   // 5. 初始化 SQLite(WAL + 迁移,主进程独占句柄)
   try {

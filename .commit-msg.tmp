@@ -1,24 +1,21 @@
-feat: SQLite 持久化 + Spec/原语注册表/数据流/校验器 (Phase 2-3)
+feat: Planner 工作流生成 + Interpreter 工作流执行器 (Phase 4-5)
 
-Phase 2 — SQLite 持久化:
-- database.ts: 单例句柄,WAL + busy_timeout,主进程独占
-  better-sqlite3 native 模块用 createRequire 惰性加载(避免 ESM 崩溃)
-  v13 与 Electron 31(Node 20)ABI 不兼容,降级至 v11
-- migrations.ts: 版本递增迁移,事务包裹
-- schema.ts: 完整建表(project/conversation/message/workflow/
-  workflow_revision/run/step_run/model_call/tool_call/approval/
-  artifact/rollback)
-- 主进程启动时初始化,will-quit 时关闭
+Phase 4 — Planner(规划层):
+- planner.ts: 从原语注册表自动生成系统提示
+  (每个原语 schema + 描述 + 可用 capability + 全局变量 + 数据流语法)
+- generateSpec(): 调模型生成 spec JSON → 容错解析(去 markdown/提取 {})
+  → 静态校验 → 不过则带错误重试(max_retries)
+- 生成成功后存入 DB(workflow + workflow_revision 草稿态)
+- IPC: planner:generate
 
-Phase 3 — Spec 与原语注册表:
-- spec/types.ts: WorkflowSpec/SpecNode/SpecEdge/Budget 等
-  spec 写 capability 不写模型名(运行时路由)
-- spec/primitives.ts: 18 个内置原语(collect/require/approve/
-  llm_generate/classify/extract/split/fanout/join/assemble/branch/
-  loop/rollback_to/tool_call/apply_change/godot_check/run_test/verify)
-  Planner 只能组合注册表内原语,不能发明新节点
-- spec/dataflow.ts: {{ }} 文本插值 + $ref 整体引用 + 三类命名空间
-  (ALL_CAPS 全局 / input.* 输入 / node.output 节点产出)
-  + 内置全局变量表 + input_hash 计算(引用解析后)
-- spec/validator.ts: 静态校验(未注册类型/不存在边/预算缺失/
-  必填参数/死循环/不可达/审批绕过/未定义引用)
+Phase 5 — Interpreter(执行层):
+- interpreter.ts: 读 spec → 拓扑排序(Kahn) → 逐节点执行
+  - 数据流解析:每步执行前 deepInterpolate({{ }} + $ref)
+  - llm_generate: 调 provider 流式生成,产出 text/patch
+  - verify: 规则优先(退出码/stderr grep/文件存在/空输出)
+  - collect/require/approve/assemble/split: 基础桩
+- 每步写 step_run 到 DB,模型调用写 model_call
+- 运行事件流式推送(step_start/delta/done/failed/verify/run_done)
+- 支持取消(AbortController)
+- IPC: interpreter:run(流式) + interpreter:cancel
+- preload 暴露 spec.generate / spec.run API

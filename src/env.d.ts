@@ -81,6 +81,24 @@ interface DubheApi {
   }
 
   on: (channel: string, listener: (...args: unknown[]) => void) => () => void
+
+  spec: {
+    generate: (task: string) => Promise<{
+      spec: object | null
+      validation: { ok: boolean; errors: { severity: string; nodeId?: string; message: string }[] }
+      rawResponse: string
+    }>
+    run: (
+      options: {
+        spec: object
+        input: Record<string, unknown>
+        globals?: Record<string, unknown>
+      },
+      onEvent: (event: { type: string; nodeId?: string; [key: string]: unknown }) => void,
+      onDone: () => void,
+      onError: (error: string) => void
+    ) => () => void
+  }
 }
 
 interface Window {
