@@ -1,1 +1,19 @@
-chore: remove temp commit message file, add to gitignore
+feat: Provider 适配器架构重构 + UI 改进
+
+== Provider 适配器架构 ==
+- 新增 adapters/ 层:协议级 HTTP 客户端,每种 API 格式一个
+  - openai_chat: OpenAI Chat Completions(SSE 流式)
+  - openai_responses: OpenAI Responses API(response.output_text.delta)
+  - anthropic: Anthropic Messages API(x-api-key + content_block_delta)
+  - http_job: 异步任务(提交→轮询→取结果,MiniMax 图/视/音)
+- 共享 http-utils:重试/超时/令牌桶/SSE 解析
+- 通用 ManifestProvider:按 manifest 的 adapter 字段委托给适配器
+  接入一个服务 = 一份 YAML,代码零改动
+- DeepSeek / MiniMax 均为纯 manifest 驱动,无自定义 Provider 类
+- manifest 种子化改为总是覆盖内置(随工作站更新)
+
+== UI 改进 ==
+- 全局窄滚动条(6px,hover 加深)
+- 输入框自适应:最小 3 行,最大 6 行,超出滚动
+- 对话失败处理:红色错误展示 + 重试按钮(移除失败消息重发)
+- 健康检查 IPC 返回格式修正(始终 Record<id, status>)

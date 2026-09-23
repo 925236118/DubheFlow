@@ -38,6 +38,29 @@ body {
   user-select: none;
 }
 
+/* ===== 全局窄滚动条 ===== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a4055;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -492,3 +515,27 @@ body {
   user-select: text;
 }
 .chat__input:focus { border-color: var(--accent); }
+
+/* 错误消息 + 重试 */
+.msg--error .msg__content {
+  color: var(--danger);
+  font-size: 13px;
+}
+.msg--error .msg__role {
+  color: var(--danger);
+}
+.msg__retry {
+  margin-top: 6px;
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.msg__retry:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

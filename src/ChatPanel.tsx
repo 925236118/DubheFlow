@@ -4,110 +4,147 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   streaming?: boolean
+  error?: boolean
 }
 
 // 距底部多少像素以内算"在底部",恢复自动滚动
 const SCROLL_THRESHOLD = 80
+// 输入框:3 行最小高度,6 行最大高度(13px * 1.5 行高 + padding/border)
+const MIN_TA_HEIGHT = 78
+const MAX_TA_HEIGHT = 138
 
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
-  // 是否显示"回到底部"按钮(用户上滑后出现)
   const [showJump, setShowJump] = useState(false)
   const cancelRef = useRef<(() => void) | null>(null)
 
-  // 滚动容器 ref
   const scrollRef = useRef<HTMLDivElement>(null)
-  // 是否自动跟随滚动(ref 避免频繁 re-render)
   const autoScrollRef = useRef(true)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // 滚动事件:判断用户是否在底部附近
+  // ===== 输入框自适应高度 =====
+  const adjustTextarea = useCallback(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    const h = Math.min(Math.max(el.scrollHeight, MIN_TA_HEIGHT), MAX_TA_HEIGHT)
+    el.style.height = h + 'px'
+    el.style.overflowY = el.scrollHeight > MAX_TA_HEIGHT ? 'auto' : 'hidden'
+  }, [])
+
+  useEffect(() => {
+    adjustTextarea()
+  }, [input, adjustTextarea])
+
+  // ===== 智能滚动 =====
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
     const atBottom = distFromBottom < SCROLL_THRESHOLD
     autoScrollRef.current = atBottom
-    setShowJump(!atBottom)
-  }, [])
+    setShowJump(!atBottom && messages.length > 0)
+  }, [messages.length])
 
-  // 消息变化时,若自动滚动开启则滚到底
   useEffect(() => {
     if (autoScrollRef.current && scrollRef.current) {
-      const el = scrollRef.current
-      el.scrollTop = el.scrollHeight
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
 
-  const send = useCallback(async () => {
-    const text = input.trim()
-    if (!text || busy) return
-    setInput('')
-    setBusy(true)
-    // 发送时强制回到底部
-    autoScrollRef.current = true
+  // ===== 发送 =====
+  const send = useCallback(
+    async (overrideText?: string) => {
+      const text = (overrideText ?? input).trim()
+      if (!text || busy) return
+      setInput('')
+      setBusy(true)
+      autoScrollRef.current = true
 
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: text },
-      { role: 'assistant', content: '', streaming: true }
-    ])
+      // 构建请求消息(排除正在流式/出错的消息)
+      const history = messages
+        .filter((m) => !m.streaming && !m.error)
+        .map((m) => ({ role: m.role, content: m.content }))
 
-    const req: ChatRequest = {
-      capability: 'coding',
-      messages: [...messages.filter((m) => !m.streaming), { role: 'user', content: text }].map(
-        (m) => ({ role: m.role, content: m.content })
-      ),
-      temperature: 0
-    }
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: text },
+        { role: 'assistant', content: '', streaming: true }
+      ])
 
-    const cancel = window.dubhe.provider.chatStream(
-      req,
-      (delta) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = { ...last, content: last.content + delta }
-          }
-          return next
-        })
-      },
-      () => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last) next[next.length - 1] = { ...last, streaming: false }
-          return next
-        })
-        setBusy(false)
-        cancelRef.current = null
-      },
-      (error) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = {
-              ...last,
-              content: `❌ ${error}`,
-              streaming: false
-            }
-          }
-          return next
-        })
-        setBusy(false)
-        cancelRef.current = null
+      const req: ChatRequest = {
+        capability: 'coding',
+        messages: [...history, { role: 'user', content: text }],
+        temperature: 0
       }
-    )
-    cancelRef.current = cancel
-  }, [input, busy, messages])
+
+      const cancel = window.dubhe.provider.chatStream(
+        req,
+        (delta) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = { ...last, content: last.content + delta }
+            }
+            return next
+          })
+        },
+        () => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last) next[next.length - 1] = { ...last, streaming: false }
+            return next
+          })
+          setBusy(false)
+          cancelRef.current = null
+        },
+        (error) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                content: error,
+                streaming: false,
+                error: true
+              }
+            }
+            return next
+          })
+          setBusy(false)
+          cancelRef.current = null
+        }
+      )
+      cancelRef.current = cancel
+    },
+    [input, busy, messages]
+  )
 
   const stop = () => {
     cancelRef.current?.()
     setBusy(false)
   }
+
+  // ===== 重试:移除失败的 assistant + 对应 user 消息,重新发送 =====
+  const retry = useCallback(
+    (failedIndex: number) => {
+      if (busy) return
+      // 找到失败消息前一条 user 消息的文本
+      const userMsg = messages[failedIndex - 1]
+      if (!userMsg || userMsg.role !== 'user') return
+      const text = userMsg.content
+      // 移除失败的 assistant + 它的 user 消息
+      setMessages((prev) => prev.slice(0, failedIndex - 1))
+      // 重新发送
+      send(text)
+    },
+    [busy, messages, send]
+  )
 
   const jumpToBottom = () => {
     autoScrollRef.current = true
@@ -129,12 +166,17 @@ export default function ChatPanel() {
           </div>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={`msg msg--${m.role}`}>
-            <div className="msg__role">{m.role === 'user' ? '你' : '天枢'}</div>
-            <div className="msg__content">
-              {m.content || (m.streaming ? '思考中…' : '')}
-              {m.streaming && <span className="msg__cursor">▋</span>}
+          <div key={i} className={`msg msg--${m.role} ${m.error ? 'msg--error' : ''}`}>
+            <div className="msg__role">
+              {m.role === 'user' ? '你' : m.error ? '错误' : '天枢'}
             </div>
+            <div className="msg__content">{m.content}</div>
+            {m.error && !busy && (
+              <button className="msg__retry" onClick={() => retry(i)}>
+                ↻ 重试
+              </button>
+            )}
+            {m.streaming && <span className="msg__cursor">▋</span>}
           </div>
         ))}
       </div>
@@ -147,9 +189,9 @@ export default function ChatPanel() {
 
       <div className="chat__composer">
         <textarea
+          ref={textareaRef}
           className="chat__input"
-          placeholder="描述你的需求…"
-          rows={2}
+          placeholder="描述你的需求…(Shift+Enter 换行)"
           value={input}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
@@ -165,7 +207,7 @@ export default function ChatPanel() {
             停止
           </button>
         ) : (
-          <button className="btn btn--primary" onClick={send} disabled={!input.trim()}>
+          <button className="btn btn--primary" onClick={() => send()} disabled={!input.trim()}>
             发送
           </button>
         )}

@@ -1,0 +1,197 @@
+# MiniMax 服务清单
+# 对齐设计 §8.10 ①:远程、带 key、异步任务
+# 接入一次 → image / video / music / speech / vision 节点全部可用
+manifest_version: 1
+id: minimax
+name: MiniMax
+version: 1.0.0
+description: 图像 / 视频 / 音乐 / 语音生成与视觉理解(异步任务为主)
+locality: remote
+min_app_version: 0.0.0
+
+auth:
+  type: api_key
+  fields:
+    - { key: api_key,  label: API Key,  secret: true,  required: true, placeholder: "..." }
+    - { key: group_id, label: Group ID, secret: false, required: true, placeholder: "..." }
+
+health:
+  adapter: openai_chat
+  request:
+    model: abab6.5s-chat
+    messages:
+      - { role: user, content: "ping" }
+    max_tokens: 1
+  on_fail: degrade
+
+nodes:
+  # 文本对话(abab6.5s,OpenAI 兼容)
+  - type: gen_text
+    capability: text
+    label: 文本生成
+    description: MiniMax abab6.5s 对话
+    adapter: openai_chat
+    adapter_config:
+      model: abab6.5s-chat
+      base_url: https://api.minimax.chat/v1
+    args:
+      prompt: { type: string, required: true, widget: textarea }
+    outputs:
+      text: { type: string }
+    cost:
+      model: per_token
+      input: 0.001
+      output: 0.002
+      currency: USD
+      per: 1000000
+    exec:
+      mode: sync
+      timeout_seconds: 120
+      parallel_safe: true
+      idempotent: true
+      approval: none
+
+  # 视觉理解(abab6.5-vl,OpenAI 兼容)
+  - type: vision
+    capability: vision
+    label: 视觉理解
+    description: MiniMax 视觉模型
+    adapter: openai_chat
+    adapter_config:
+      model: abab6.5-vl
+      base_url: https://api.minimax.chat/v1
+      image_field: image_url
+    args:
+      image: { type: file, required: true }
+      prompt: { type: string, required: true, widget: textarea }
+    outputs:
+      text: { type: string }
+    cost:
+      model: per_token
+      input: 0.001
+      output: 0.002
+      currency: USD
+      per: 1000000
+    exec:
+      mode: sync
+      timeout_seconds: 120
+      parallel_safe: true
+      approval: none
+
+  # 图像生成(异步任务)
+  - type: gen_image
+    capability: image
+    label: 图像生成
+    description: MiniMax image-01 图像生成
+    adapter: http_job
+    adapter_config:
+      model: image-01
+      base_url: https://api.minimax.chat/v1
+      submit: /image_generation
+      poll: /query
+      job_id_field: task_id
+      status_field: status
+      result_field: file_id
+      done_status: Done
+      fail_status: Failed
+      poll_interval: 3000
+      poll_method: GET
+    args:
+      prompt: { type: string, required: true, widget: textarea }
+      size: { type: enum, values: ["1024x1024","1280x720"], default: "1024x1024", widget: select }
+      n: { type: integer, default: 1, min: 1, max: 4 }
+    outputs:
+      images: { type: "file[]", kind: image }
+    cost: { model: per_unit, unit: image, price: 0.04, currency: USD }
+    exec:
+      mode: async_job
+      timeout_seconds: 180
+      parallel_safe: true
+      idempotent: false
+      approval: none
+
+  # 视频生成(异步任务)
+  - type: gen_video
+    capability: video
+    label: 视频生成
+    description: MiniMax video-01 视频生成
+    adapter: http_job
+    adapter_config:
+      model: video-01
+      base_url: https://api.minimax.chat/v1
+      submit: /video_generation
+      poll: /query
+      job_id_field: task_id
+      status_field: status
+      result_field: file_id
+      done_status: Done
+      fail_status: Failed
+      poll_interval: 5000
+      poll_method: GET
+    args:
+      prompt: { type: string, required: true, widget: textarea }
+      duration: { type: integer, default: 6, min: 1, max: 30, widget: slider }
+    outputs:
+      video: { type: file, kind: video }
+    cost: { model: per_unit, unit: second, price: 0.10, currency: USD }
+    exec:
+      mode: async_job
+      timeout_seconds: 900
+      parallel_safe: true
+      approval: none
+
+  # 音乐生成(异步任务)
+  - type: gen_music
+    capability: music
+    label: 音乐生成
+    description: MiniMax 音乐生成
+    adapter: http_job
+    adapter_config:
+      base_url: https://api.minimax.chat/v1
+      submit: /music_generation
+      poll: /query
+      job_id_field: task_id
+      status_field: status
+      result_field: file_id
+      done_status: Done
+      fail_status: Failed
+      poll_interval: 5000
+      poll_method: GET
+    args:
+      prompt: { type: string, required: true, widget: textarea }
+      duration: { type: integer, default: 30, widget: slider }
+    outputs:
+      audio: { type: file, kind: audio }
+    cost: { model: per_unit, unit: second, price: 0.02, currency: USD }
+    exec:
+      mode: async_job
+      timeout_seconds: 600
+      parallel_safe: true
+
+  # 语音合成(异步任务)
+  - type: gen_speech
+    capability: speech
+    label: 语音合成
+    description: MiniMax T2A 语音合成
+    adapter: http_job
+    adapter_config:
+      base_url: https://api.minimax.chat/v1
+      submit: /t2a_v2
+      poll: /query
+      job_id_field: task_id
+      status_field: status
+      result_field: file_id
+      done_status: Done
+      fail_status: Failed
+      poll_interval: 2000
+      poll_method: GET
+    args:
+      text: { type: string, required: true, widget: textarea }
+      voice: { type: string, default: "male-qn-qingse" }
+    outputs:
+      audio: { type: file, kind: audio }
+    cost: { model: per_unit, unit: character, price: 0.00002, currency: USD }
+    exec:
+      mode: async_job
+      timeout_seconds: 300
+      parallel_safe: true

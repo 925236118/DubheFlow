@@ -16,7 +16,7 @@ function builtinSourceDir(): string {
   return join(process.cwd(), 'resources', 'services', 'builtin')
 }
 
-/** 首次运行:把内置 manifest 复制到 userData(不覆盖用户改动) */
+/** 首次运行:把内置 manifest 复制到 userData(内置 manifest 随工作站更新,总是覆盖) */
 export function seedBuiltinManifests(): void {
   const src = builtinSourceDir()
   const dest = getAppPaths().servicesBuiltin
@@ -24,10 +24,8 @@ export function seedBuiltinManifests(): void {
   mkdirSync(dest, { recursive: true })
   for (const file of readdirSync(src)) {
     if (!file.endsWith('.yaml') && !file.endsWith('.yml')) continue
-    const target = join(dest, file)
-    if (!existsSync(target)) {
-      copyFileSync(join(src, file), target)
-    }
+    // 内置 manifest 总是覆盖(它们由工作站分发,用户自定义走 services/user/)
+    copyFileSync(join(src, file), join(dest, file))
   }
 }
 

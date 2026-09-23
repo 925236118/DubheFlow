@@ -16,6 +16,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\""
   },
   "dependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "better-sqlite3": "^13.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "yaml": "^2.9.1"

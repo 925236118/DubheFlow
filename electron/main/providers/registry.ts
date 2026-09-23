@@ -1,6 +1,8 @@
 // Provider 注册表 + 路由表
 // 对齐设计 §8.3:capability → 路由表查出 provider → 调用
 // 路由表用户可编辑(可把 coding 从 DeepSeek 换成别的),切换不影响任何工作流
+//
+// 关键:所有服务都通过 ManifestProvider 接入 —— 接入一个服务 = 一份 manifest,代码零改动
 import type {
   Capability,
   ChatChunk,
@@ -10,14 +12,7 @@ import type {
   ModelProvider
 } from './types'
 import type { ServiceManifest } from './manifest'
-import { DeepSeekProvider } from './deepseek'
-
-export type ProviderFactory = (manifest: ServiceManifest) => ModelProvider
-
-// 已知的 provider 工厂(后续接入新服务只需在此注册)
-const factories: Record<string, ProviderFactory> = {
-  deepseek: (m) => new DeepSeekProvider(m)
-}
+import { ManifestProvider } from './manifest-provider'
 
 // 默认路由表:capability → provider id
 const DEFAULT_ROUTING: Partial<Record<Capability, string>> = {
@@ -42,18 +37,13 @@ export class ProviderRegistry {
   private manifests = new Map<string, ServiceManifest>()
   private routing: Partial<Record<Capability, string>> = { ...DEFAULT_ROUTING }
 
-  /** 从 manifest 列表构建所有 provider */
+  /** 从 manifest 列表构建所有 provider —— 全部用通用 ManifestProvider */
   init(manifests: ServiceManifest[]): void {
     this.providers.clear()
     this.manifests.clear()
     for (const manifest of manifests) {
-      const factory = factories[manifest.id]
-      if (!factory) {
-        console.warn(`[registry] 未知服务 manifest: ${manifest.id},跳过`)
-        continue
-      }
       try {
-        const provider = factory(manifest)
+        const provider = new ManifestProvider(manifest)
         this.providers.set(provider.id, provider)
         this.manifests.set(manifest.id, manifest)
       } catch (err) {
