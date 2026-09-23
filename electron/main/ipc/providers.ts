@@ -67,12 +67,12 @@ export function registerProviderIpc(): void {
     return true
   })
 
-  // ===== 健康检查 =====
+  // ===== 健康检查(始终返回 Record<providerId, HealthStatus>,UI 统一取 results[id])=====
   ipcMain.handle('provider:health', async (_e, providerId?: string) => {
     if (providerId) {
       const p = registry.get(providerId)
-      if (!p) return { available: false, message: 'provider 不存在' }
-      return p.healthCheck()
+      if (!p) return { [providerId]: { available: false, message: 'provider 不存在' } }
+      return { [providerId]: await p.healthCheck() }
     }
     return registry.healthCheckAll()
   })

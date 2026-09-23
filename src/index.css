@@ -454,6 +454,30 @@ body {
   padding: 10px 12px;
   border-top: 1px solid var(--border);
 }
+
+/* 回到底部浮动按钮 */
+.chat {
+  position: relative;
+}
+.chat__jump {
+  position: absolute;
+  bottom: 64px;
+  right: 16px;
+  z-index: 10;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: color 0.15s, border-color 0.15s;
+}
+.chat__jump:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 .chat__input {
   flex: 1;
   resize: none;

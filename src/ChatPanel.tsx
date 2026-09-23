@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -6,19 +6,48 @@ interface Message {
   streaming?: boolean
 }
 
+// 距底部多少像素以内算"在底部",恢复自动滚动
+const SCROLL_THRESHOLD = 80
+
 export default function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  // 是否显示"回到底部"按钮(用户上滑后出现)
+  const [showJump, setShowJump] = useState(false)
   const cancelRef = useRef<(() => void) | null>(null)
+
+  // 滚动容器 ref
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // 是否自动跟随滚动(ref 避免频繁 re-render)
+  const autoScrollRef = useRef(true)
+
+  // 滚动事件:判断用户是否在底部附近
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    const atBottom = distFromBottom < SCROLL_THRESHOLD
+    autoScrollRef.current = atBottom
+    setShowJump(!atBottom)
+  }, [])
+
+  // 消息变化时,若自动滚动开启则滚到底
+  useEffect(() => {
+    if (autoScrollRef.current && scrollRef.current) {
+      const el = scrollRef.current
+      el.scrollTop = el.scrollHeight
+    }
+  }, [messages])
 
   const send = useCallback(async () => {
     const text = input.trim()
     if (!text || busy) return
     setInput('')
     setBusy(true)
+    // 发送时强制回到底部
+    autoScrollRef.current = true
 
-    // 追加用户消息 + 占位 assistant 消息
     setMessages((prev) => [
       ...prev,
       { role: 'user', content: text },
@@ -36,7 +65,6 @@ export default function ChatPanel() {
     const cancel = window.dubhe.provider.chatStream(
       req,
       (delta) => {
-        // 追加到最后一条 assistant 消息
         setMessages((prev) => {
           const next = [...prev]
           const last = next[next.length - 1]
@@ -81,9 +109,17 @@ export default function ChatPanel() {
     setBusy(false)
   }
 
+  const jumpToBottom = () => {
+    autoScrollRef.current = true
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+    setShowJump(false)
+  }
+
   return (
     <div className="chat">
-      <div className="chat__messages">
+      <div className="chat__messages" ref={scrollRef} onScroll={handleScroll}>
         {messages.length === 0 && (
           <div className="chat__empty">
             <p>与 AI 对话,描述你的游戏开发需求。</p>
@@ -102,6 +138,12 @@ export default function ChatPanel() {
           </div>
         ))}
       </div>
+
+      {showJump && (
+        <button className="chat__jump" onClick={jumpToBottom} title="回到底部">
+          ↓ 最新
+        </button>
+      )}
 
       <div className="chat__composer">
         <textarea
