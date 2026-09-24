@@ -216,6 +216,9 @@ async function executeNode(
       // 把 fields 转成问题,复用 ask_user 的交互阻塞机制
       const questions = collectFieldsToQuestions(args.fields)
       const collected = await deps.askUser(questions)
+      // 关键:把收集的值合并到 input 命名空间
+      // 这样下游节点的 {{ input.theme }} 才能正确解析
+      Object.assign(ctx.input, collected)
       return { collected }
     }
     case 'ask_user':

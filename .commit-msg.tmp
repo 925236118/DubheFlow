@@ -1,11 +1,6 @@
-fix: collect 节点改为交互收集(复用 ask_user 机制)
+fix: collect 节点收集的值合并到 input 命名空间 + 显示实际值
 
-collect 之前只返回字段名,不实际收集用户输入。
-现在 collect 节点:
-1. 把 args.fields 转为问题列表(collectFieldsToQuestions)
-   支持多种格式:字符串数组 / 对象数组 / 字段定义对象
-2. 在 runSpec 中 yield ask_user 事件(复用交互阻塞)
-3. executeNode 中调 deps.askUser 阻塞等待用户填写
-4. 返回 { collected: { field: value } } 供下游节点引用
-
-执行到 collect 节点时弹出表单,用户填写后继续。
+1. collect 执行后 Object.assign(ctx.input, collected)
+   → 下游节点 {{ input.theme }} 正确解析为用户输入的值
+2. formatNodeOutput collect 分支:显示 field: value
+   而非仅 field 名

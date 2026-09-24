@@ -310,7 +310,9 @@ function formatNodeOutput(_nodeType: string, output: Record<string, unknown>): s
   }
   if (output.collected) {
     const c = output.collected as Record<string, unknown>
-    return `收集: ${Object.keys(c).join(', ')}`
+    const entries = Object.entries(c)
+    if (entries.length === 0) return '(收集为空)'
+    return entries.map(([k, v]) => `${k}: ${truncate(String(v), 200)}`).join('\n')
   }
   if (output.valid !== undefined) return output.valid ? '✓ 校验通过' : '✕ 校验失败'
   if (output.result) return '拼装完成'
