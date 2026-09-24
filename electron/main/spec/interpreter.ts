@@ -20,7 +20,7 @@ export type RunEvent =
   | { type: 'run_start'; runId: string; spec: WorkflowSpec }
   | { type: 'step_start'; nodeId: string; nodeType: string; attempt: number }
   | { type: 'step_delta'; nodeId: string; delta: string }
-  | { type: 'step_done'; nodeId: string; output: Record<string, unknown> }
+  | { type: 'step_done'; nodeId: string; output: Record<string, unknown>; input: Record<string, unknown> }
   | { type: 'step_failed'; nodeId: string; error: string }
   | { type: 'step_skipped'; nodeId: string; reason: string }
   | { type: 'ask_user'; nodeId: string; nodeType: string; questions: unknown }
@@ -76,10 +76,12 @@ export async function* runSpec(
     yield { type: 'step_start', nodeId: node.id, nodeType: node.type, attempt: 0 }
 
     try {
-      // ask_user 节点:先发问题事件,再阻塞等待用户回答
+      // 解析数据流(把 {{ }} / $ref 替换为实际值)
+      const resolvedArgs = deepInterpolate(node.args, ctx) as Record<string, unknown>
+
+      // ask_user 节点:规范化问题格式后发事件,再阻塞等待用户回答
       if (node.type === 'ask_user') {
-        const resolvedArgs = deepInterpolate(node.args, ctx) as Record<string, unknown>
-        const questions = resolvedArgs.questions
+        const questions = normalizeQuestions(resolvedArgs.questions)
         yield {
           type: 'ask_user',
           nodeId: node.id,
@@ -88,15 +90,14 @@ export async function* runSpec(
         }
       }
 
-      const output = await executeNode(node, ctx, deps, signal, () => {
-        // 流式输出(通过事件机制无法在 async 函数内 yield,改用回调)
-      })
+      const output = await executeNode(node, resolvedArgs, ctx, deps, signal, () => {})
 
       // 记录产出到上下文
       setNodeOutput(ctx, node.id, output)
       // 记录 step_run 到 DB
       recordStepRun(runId, node, output)
-      yield { type: 'step_done', nodeId: node.id, output }
+      // step_done 同时携带输入(解析后的 args)和输出
+      yield { type: 'step_done', nodeId: node.id, output, input: resolvedArgs } as never
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       yield { type: 'step_failed', nodeId: node.id, error: msg }
@@ -137,27 +138,47 @@ function topologicalSort(spec: WorkflowSpec): SpecNode[] {
   return result.map((id) => nodeMap.get(id)!).filter(Boolean)
 }
 
-// ===== 执行单个节点 =====
+// ===== 规范化 ask_user 问题(AI 可能生成各种格式)=====
+function normalizeQuestions(questions: unknown): unknown[] {
+  if (Array.isArray(questions)) return questions
+  // 单个问题对象:{question, options} 或 {text, options}
+  if (questions && typeof questions === 'object') {
+    const q = questions as Record<string, unknown>
+    return [{
+      id: 'q1',
+      text: q.question || q.text || q.prompt || '请回答',
+      options: Array.isArray(q.options) ? q.options : undefined,
+      placeholder: q.placeholder
+    }]
+  }
+  // 纯字符串 → 一个文本问题
+  if (typeof questions === 'string') {
+    return [{ id: 'q1', text: questions }]
+  }
+  return []
+}
+
+// ===== 执行单个节点(接收已解析的 args)=====
 async function executeNode(
   node: SpecNode,
+  args: Record<string, unknown>,
   ctx: EvalContext,
   deps: ExecutorDeps,
   signal: AbortSignal | undefined,
   onDelta: (delta: string) => void
 ): Promise<Record<string, unknown>> {
-  // 解析数据流(把 {{ }} / $ref 替换为实际值)
-  const resolvedArgs = deepInterpolate(node.args, ctx) as Record<string, unknown>
+  // args 已由 runSpec 解析完毕(无需再 interpolate)
 
   switch (node.type) {
     case 'llm_generate':
-      return executeGenerate(node, resolvedArgs, ctx, deps, signal, onDelta)
+      return executeGenerate(node, args, ctx, deps, signal, onDelta)
     case 'verify':
-      return executeVerify(node, resolvedArgs, ctx)
+      return executeVerify(node, args, ctx)
     case 'collect':
-      return { collected: resolvedArgs.fields }
+      return { collected: args.fields }
     case 'ask_user':
       // 阻塞等待用户回答(问题已在 runSpec 中 yield 给 UI)
-      const questions = (resolvedArgs.questions as unknown[]) ?? []
+      const questions = (args.questions as unknown[]) ?? []
       const answers = await deps.askUser(questions)
       return { answers }
     case 'require':
@@ -165,9 +186,9 @@ async function executeNode(
     case 'approve':
       return { approved: true }
     case 'assemble':
-      return { result: resolvedArgs.inputs }
+      return { result: args.inputs }
     case 'split':
-      return { subtasks: resolvedArgs.into }
+      return { subtasks: args.into }
     default:
       // 未实现的节点类型:记录但不执行
       console.log(`[interpreter] 节点 ${node.id}(${node.type}) 暂未实现,跳过`)

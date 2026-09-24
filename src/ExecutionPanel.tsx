@@ -6,6 +6,7 @@ export interface ExecutionLogEntry {
   nodeType: string
   status: 'running' | 'succeeded' | 'failed'
   output?: string
+  input?: string
   error?: string
   timestamp: number
 }
@@ -55,8 +56,11 @@ export default function ExecutionPanel({
                   <span className="exec-entry__type">{entry.nodeType}</span>
                   <span className="exec-entry__status">{entry.status}</span>
                 </div>
-                {(entry.output || entry.error) && (
+                {(entry.output || entry.error || entry.input) && (
                   <div className="exec-entry__output">
+                    {entry.input && (
+                      <div className="exec-entry__input">📥 {entry.input}</div>
+                    )}
                     {entry.error ? (
                       <span className="exec-entry__error">{entry.error}</span>
                     ) : (

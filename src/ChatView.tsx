@@ -293,6 +293,9 @@ export default function ChatView({
                       <span className="exec-entry__node">{e.nodeId}</span>
                       <span className="exec-entry__type">{e.nodeType}</span>
                     </div>
+                    {e.input && (
+                      <div className="exec-entry__input">📥 {e.input}</div>
+                    )}
                     {e.output && <pre className="exec-entry__text">{e.output}</pre>}
                     {e.error && <div className="exec-entry__error">{e.error}</div>}
                   </div>

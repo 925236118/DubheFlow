@@ -974,6 +974,15 @@ body {
   max-height: 200px;
   overflow-y: auto;
 }
+.exec-entry__input {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  margin-bottom: 4px;
+  border-left: 2px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .exec-entry__error { color: var(--danger); font-size: 12px; }
 
 /* ===== 选中节点高亮 ===== */

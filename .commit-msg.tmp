@@ -1,4 +1,25 @@
-fix: ask_user questions 非数组导致崩溃
+feat: 执行日志按节点类型格式化 + 显示输入 + ask_user 规范化
 
-AI 生成的问题可能不是数组(对象/字符串),questions.every() 崩溃。
-AskUserForm 加 Array.isArray 防护 + 单个问题项格式校验。
+== 执行日志改进 ==
+- step_done 事件携带 input(解析后的 args)+ output
+- formatNodeOutput: 按节点类型格式化输出
+  - llm_generate → 显示生成的文本(非 JSON)
+  - verify → ✓ 通过 / ✕ 失败 — 原因
+  - ask_user → 用户回答(非空 JSON)
+  - collect → 收集: theme, style
+  - require → ✓ 校验通过 / ✕ 校验失败
+  - assemble → 拼装完成
+  - split → 拆分: art, music, code
+- formatNodeInput: 显示输入
+  - llm_generate → 提示: <prompt 截断>
+  - verify → 标准: <criteria 截断>
+- 执行日志每步显示 📥 输入 + 输出(非原始 JSON)
+
+== ask_user 规范化 ==
+- AI 可能生成 {question, options} 而非 [{id, text, options}]
+- normalizeQuestions 自动转换:对象→数组、字符串→单问题
+- 不再因格式不符导致 questions.every 崩溃
+
+== Interpreter 重构 ==
+- deepInterpolate 移到 runSpec,executeNode 接收已解析的 args
+- 避免重复解析,step_done 可携带 input

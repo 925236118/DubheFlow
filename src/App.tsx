@@ -126,15 +126,22 @@ export default function App() {
     const { cancel, runId } = window.dubhe.spec.run(
       { spec: spec as object, input: input ? { task: input } : {} },
       (event) => {
-        const e = event as { type: string; nodeId?: string; nodeType?: string; output?: Record<string, unknown>; error?: string; questions?: unknown[] }
+        const e = event as { type: string; nodeId?: string; nodeType?: string; output?: Record<string, unknown>; input?: Record<string, unknown>; error?: string; questions?: unknown[] }
         if (e.type === 'step_start' && e.nodeId) {
           setNodeStatus((s) => ({ ...s, [e.nodeId!]: 'running' }))
           setExecutionLog((log) => [...log, { nodeId: e.nodeId!, nodeType: e.nodeType ?? '', status: 'running' as const, timestamp: Date.now() }])
         }
         if (e.type === 'step_done' && e.nodeId) {
           setNodeStatus((s) => ({ ...s, [e.nodeId!]: 'succeeded' }))
-          const out = (e.output?.text as string) ?? (e.output?.patch as string) ?? JSON.stringify(e.output ?? {}, null, 2)
-          setExecutionLog((log) => log.map(en => en.nodeId === e.nodeId ? { ...en, status: 'succeeded' as const, output: out } : en))
+          setExecutionLog((log) => log.map(en => {
+            if (en.nodeId !== e.nodeId) return en
+            return {
+              ...en,
+              status: 'succeeded' as const,
+              input: formatNodeInput(en.nodeType, e.input ?? {}),
+              output: formatNodeOutput(en.nodeType, e.output ?? {})
+            }
+          }))
         }
         if (e.type === 'step_failed' && e.nodeId) {
           setNodeStatus((s) => ({ ...s, [e.nodeId!]: 'failed' }))
@@ -287,4 +294,44 @@ export default function App() {
       </footer>
     </div>
   )
+}
+
+// ===== 按节点类型格式化输出(替代原始 JSON)=====
+function formatNodeOutput(_nodeType: string, output: Record<string, unknown>): string {
+  if (output.text) return String(output.text)
+  if (output.patch) return String(output.patch)
+  if (output.success !== undefined)
+    return `${output.success ? '✓ 通过' : '✕ 失败'} — ${output.reason ?? ''}`
+  if (output.answers) {
+    const a = output.answers as Record<string, unknown>
+    const entries = Object.entries(a)
+    if (entries.length === 0) return '(用户未回答)'
+    return entries.map(([k, v]) => `${k}: ${v}`).join('\n')
+  }
+  if (output.collected) {
+    const c = output.collected as Record<string, unknown>
+    return `收集: ${Object.keys(c).join(', ')}`
+  }
+  if (output.valid !== undefined) return output.valid ? '✓ 校验通过' : '✕ 校验失败'
+  if (output.result) return '拼装完成'
+  if (output.subtasks) {
+    const s = output.subtasks as unknown[]
+    return `拆分: ${(Array.isArray(s) ? s : []).join(', ')}`
+  }
+  const keys = Object.keys(output)
+  if (keys.length === 0) return '(无输出)'
+  return keys.map(k => `${k}: ${truncate(String(output[k]))}`).join('\n')
+}
+
+function formatNodeInput(_nodeType: string, input: Record<string, unknown>): string {
+  if (input.prompt) return `提示: ${truncate(String(input.prompt), 200)}`
+  if (input.criteria) return `标准: ${truncate(String(input.criteria), 200)}`
+  if (input.fields) return `字段: ${String(input.fields)}`
+  const keys = Object.keys(input).filter(k => k !== 'questions')
+  if (keys.length === 0) return ''
+  return keys.map(k => `${k}: ${truncate(String(input[k]), 100)}`).join('\n')
+}
+
+function truncate(s: string, max = 300): string {
+  return s.length > max ? s.slice(0, max) + '…' : s
 }
