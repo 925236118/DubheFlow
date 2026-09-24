@@ -7,6 +7,11 @@ import { prepare } from '../db/database'
 
 // 活跃的运行(支持取消)
 const activeRuns = new Map<string, AbortController>()
+// 待回答的 ask_user(阻塞等待用户响应)
+const pendingResponses = new Map<
+  string,
+  (answers: Record<string, unknown>) => void
+>()
 
 export function registerSpecIpc(): void {
   // ===== Planner:从任务描述生成 spec =====
@@ -55,7 +60,12 @@ export function registerSpecIpc(): void {
       // 适配 registry.invoke 为 interpreter 所需的 deps
       const deps = {
         invokeProvider: (req: any, signal?: AbortSignal) =>
-          registry.invoke(req, signal)
+          registry.invoke(req, signal),
+        // ask_user 阻塞:创建 promise,等 UI 通过 interpreter:respond 回传答案
+        askUser: (_questions: unknown[]) =>
+          new Promise<Record<string, unknown>>((resolve) => {
+            pendingResponses.set(runId, resolve)
+          })
       }
 
       // 创建 run 记录
@@ -99,6 +109,7 @@ export function registerSpecIpc(): void {
         }
       } finally {
         activeRuns.delete(runId)
+        pendingResponses.delete(runId)
       }
     }
   )
@@ -107,6 +118,22 @@ export function registerSpecIpc(): void {
   ipcMain.handle('interpreter:cancel', (_e, runId: string) => {
     activeRuns.get(runId)?.abort()
     activeRuns.delete(runId)
+    // 清理待回答的问题(给空答案避免 promise 悬挂)
+    pendingResponses.get(runId)?.({})
+    pendingResponses.delete(runId)
     return true
   })
+
+  // ===== 用户回答 ask_user 问题 =====
+  ipcMain.handle(
+    'interpreter:respond',
+    (_e, { runId, answers }: { runId: string; answers: Record<string, unknown> }) => {
+      const resolve = pendingResponses.get(runId)
+      if (resolve) {
+        resolve(answers)
+        pendingResponses.delete(runId)
+      }
+      return true
+    }
+  )
 }

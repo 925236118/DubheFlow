@@ -97,7 +97,9 @@ interface DubheApi {
       onEvent: (event: { type: string; nodeId?: string; [key: string]: unknown }) => void,
       onDone: () => void,
       onError: (error: string) => void
-    ) => () => void
+    ) => { cancel: () => void; runId: string }
+
+    respond: (runId: string, answers: Record<string, unknown>) => Promise<boolean>
   }
 
   git: {

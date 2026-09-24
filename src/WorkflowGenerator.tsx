@@ -52,13 +52,20 @@ export default function WorkflowGenerator({
           disabled={generating}
           onChange={(e) => setTask(e.target.value)}
         />
-        <button
-          className="btn btn--primary"
-          onClick={handleGenerate}
-          disabled={!task.trim() || generating}
-        >
-          {generating ? '生成中…' : '⚙ 生成工作流'}
-        </button>
+        {generating ? (
+          <div className="wf-gen__loading">
+            <span className="wf-gen__spinner" />
+            <span>AI 正在生成工作流,请稍候…</span>
+          </div>
+        ) : (
+          <button
+            className="btn btn--primary"
+            onClick={handleGenerate}
+            disabled={!task.trim()}
+          >
+            ⚙ 生成工作流
+          </button>
+        )}
       </div>
 
       {errors.length > 0 && (

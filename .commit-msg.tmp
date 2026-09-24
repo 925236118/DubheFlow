@@ -1,30 +1,37 @@
-feat: 侧边栏布局 + 工作流管理 + 执行输出 + 对话持久化
+feat: ask_user 交互节点 + 工作流执行器视图 + 生成中状态 + 修复
 
-== 布局重构 ==
-- 左侧边栏(Sidebar):对话列表 + 工作流列表 + 设置(左下角)
-- 主面板路由:对话视图 / 工作流列表 / 工作流编辑器 / 设置
-- split-view:对话/生成器 + 画布并排,执行面板在画布下方
+== ask_user 原语(交互阻塞节点)==
+- primitives.ts: 新增 ask_user(向用户发起问题,阻塞等待输入)
+  args: questions [{id, text, options?, placeholder?}]
+  outputs: answers { question_id: answer }
+- interpreter.ts: 
+  - runSpec 遇 ask_user 节点先 yield 事件(含 questions)
+  - executeNode 调 deps.askUser() 阻塞等待用户回答
+  - ExecutorDeps 新增 askUser 字段
+  - RunEvent 新增 ask_user 类型
+- spec.ts IPC: askUser 实现(promise + pendingResponses Map)
+  interpreter:respond 处理器:用户回答 → resolve promise → 继续执行
+- preload: run 返回 { cancel, runId } + respond 方法
+- AskUserForm.tsx: 问题表单(选项题 radio / 文本题 input)
+  统一"都不符合我的想法"输入框(填了则覆盖所有答案)
 
-== 工作流管理 ==
-- WorkflowList:工作流卡片列表,支持搜索/收藏置顶/删除
-- WorkflowGenerator:独立的工作流生成面板(不在对话中)
-  输入任务 → AI 生成 spec → 校验反馈 → 画布展示
-- DB migration v2:workflow.pinned 列
-- DB IPC:conversations/messages/workflows 的 CRUD
+== 对话页 → 工作流执行器 ==
+- WorkflowRunner.tsx: 替代 ChatPanel(当选择了工作流时)
+  - 工作流选择器(下拉)
+  - 状态卡片(未开始/执行中/已成功/已失败,带颜色和图标)
+  - 输入区(传入第一个参数)
+  - 执行中显示 AskUserForm
+  - 精简执行日志
+  - 完成后可重新执行
+- App.tsx: 对话页根据 chatWorkflowId 切换 ChatPanel / WorkflowRunner
+  runStatus 状态管理(idle/running/succeeded/failed)
+  ask_user 事件 → setAskUserQuestions → WorkflowRunner 显示表单
+  respond → window.dubhe.spec.respond(runId, answers)
 
-== 执行输出 ==
-- ExecutionPanel:可折叠的执行输出面板
-  每步显示节点ID/类型/状态/产出文本,点击可选中对应画布节点
-- App 管理执行状态:step_start→running, step_done→succeeded+output,
-  step_failed→failed+error
-- 画布节点实时变色,选中节点高亮(rf-node--selected)
+== 生成中状态 ==
+- WorkflowGenerator: generating 时显示 spinner + "AI 正在生成工作流,请稍候…"
+  醒目的蓝色加载条,替代之前不明显的按钮文字变化
 
-== 对话持久化 ==
-- ChatPanel 接受 conversationId,加载历史消息
-- 发送时保存 user 消息到 DB,完成时保存 assistant 回复
-- 侧边栏新建对话 → 自动选中 → 对话列表实时刷新
-
-== 画布交互 ==
-- Canvas 支持 onNodeClick + selectedNodeId
-- 节点点击选中 → 执行面板对应条目高亮
-- 空状态文案更新(引导去工作流面板生成)
+== 修复 ==
+- Sidebar + 按钮:加 type="button" + e.stopPropagation()
+- handleNewConversation:加 try-catch 错误处理

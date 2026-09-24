@@ -5,33 +5,15 @@ import Canvas from './Canvas'
 import Settings from './Settings'
 import WorkflowList from './WorkflowList'
 import WorkflowGenerator from './WorkflowGenerator'
+import WorkflowRunner from './WorkflowRunner'
 import ExecutionPanel, { type ExecutionLogEntry } from './ExecutionPanel'
 
-// ===== 渲染进程自包含类型 =====
-interface ConversationItem {
-  id: string
-  title: string
-  created_at: number
-}
-interface WorkflowItem {
-  id: string
-  name: string
-  description: string | null
-  pinned: number
-  created_at: number
-}
-interface SpecNode {
-  id: string
-  type: string
-  args: Record<string, unknown>
-}
-interface WorkflowSpec {
-  id: string
-  goal: string
-  nodes: SpecNode[]
-  edges: [string, string][]
-  budget: { max_cost: number }
-}
+type RunStatus = 'idle' | 'running' | 'succeeded' | 'failed'
+
+interface ConversationItem { id: string; title: string; created_at: number }
+interface WorkflowItem { id: string; name: string; description: string | null; pinned: number; created_at: number }
+interface SpecNode { id: string; type: string; args: Record<string, unknown> }
+interface WorkflowSpec { id: string; goal: string; nodes: SpecNode[]; edges: [string, string][]; budget: { max_cost: number } }
 
 export default function App() {
   const [activeView, setActiveView] = useState<MainView>('chat')
@@ -44,27 +26,25 @@ export default function App() {
   const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [execCollapsed, setExecCollapsed] = useState(false)
-  const [running, setRunning] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [info, setInfo] = useState<AppInfo | null>(null)
 
+  // 执行状态
+  const [runStatus, setRunStatus] = useState<RunStatus>('idle')
+  const [askUserQuestions, setAskUserQuestions] = useState<unknown[] | null>(null)
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+
+  // 对话页工作流选择
+  const [chatWorkflowId, setChatWorkflowId] = useState<string | null>(null)
+
   const runCancelRef = useRef<(() => void) | null>(null)
 
-  // ===== 加载数据列表 =====
+  // ===== 加载列表 =====
   const loadConversations = useCallback(async () => {
-    try {
-      setConversations(await window.dubhe.db.conversations.list())
-    } catch (err) {
-      console.error('加载对话列表失败:', err)
-    }
+    try { setConversations(await window.dubhe.db.conversations.list()) } catch (e) { console.error(e) }
   }, [])
-
   const loadWorkflows = useCallback(async () => {
-    try {
-      setWorkflows(await window.dubhe.db.workflows.list())
-    } catch (err) {
-      console.error('加载工作流列表失败:', err)
-    }
+    try { setWorkflows(await window.dubhe.db.workflows.list()) } catch (e) { console.error(e) }
   }, [])
 
   useEffect(() => {
@@ -75,21 +55,23 @@ export default function App() {
 
   // ===== 侧边栏回调 =====
   const handleNewConversation = useCallback(async () => {
-    const id = await window.dubhe.db.conversations.create('新对话')
-    await loadConversations()
-    setActiveConversationId(id)
-    setActiveView('chat')
+    try {
+      const id = await window.dubhe.db.conversations.create('新对话')
+      await loadConversations()
+      setActiveConversationId(id)
+      setChatWorkflowId(null)
+      setActiveView('chat')
+    } catch (err) { console.error('创建对话失败:', err) }
   }, [loadConversations])
 
   const handleConversationClick = useCallback((id: string) => {
     setActiveConversationId(id)
+    setChatWorkflowId(null)
     setActiveView('chat')
   }, [])
 
   const handleNewWorkflow = useCallback(() => {
-    setSpec(null)
-    setExecutionLog([])
-    setNodeStatus({})
+    setSpec(null); setExecutionLog([]); setNodeStatus({}); setRunStatus('idle')
     setActiveView('workflow-editor')
   }, [])
 
@@ -97,124 +79,88 @@ export default function App() {
     try {
       const result = await window.dubhe.db.workflows.get(id)
       if (result?.revision?.spec_json) {
-        const specJson = JSON.parse(
+        setSpec(JSON.parse(
           typeof result.revision.spec_json === 'string'
-            ? result.revision.spec_json
-            : JSON.stringify(result.revision.spec_json)
-        ) as WorkflowSpec
-        setSpec(specJson)
+            ? result.revision.spec_json : JSON.stringify(result.revision.spec_json)
+        ) as WorkflowSpec)
       }
-      setExecutionLog([])
-      setNodeStatus({})
+      setExecutionLog([]); setNodeStatus({}); setRunStatus('idle')
       setActiveView('workflow-editor')
-    } catch (err) {
-      console.error('加载工作流失败:', err)
+    } catch (err) { console.error('加载工作流失败:', err) }
+  }, [])
+
+  // ===== 对话页选择工作流 =====
+  const handleChatWorkflowSelect = useCallback(async (id: string | null) => {
+    setChatWorkflowId(id)
+    setRunStatus('idle'); setNodeStatus({}); setExecutionLog([]); setAskUserQuestions(null)
+    if (id) {
+      try {
+        const result = await window.dubhe.db.workflows.get(id)
+        if (result?.revision?.spec_json) {
+          setSpec(JSON.parse(
+            typeof result.revision.spec_json === 'string'
+              ? result.revision.spec_json : JSON.stringify(result.revision.spec_json)
+          ) as WorkflowSpec)
+        }
+      } catch (err) { console.error('加载工作流失败:', err) }
+    } else {
+      setSpec(null)
     }
-  }, [])
-
-  const handleWorkflowListClick = useCallback(() => {
-    setActiveView('workflow-list')
-  }, [])
-
-  const handleSettingsClick = useCallback(() => {
-    setActiveView('settings')
   }, [])
 
   // ===== 工作流生成 =====
   const handleGenerated = useCallback((newSpec: object) => {
     setSpec(newSpec as WorkflowSpec)
-    setExecutionLog([])
-    setNodeStatus({})
+    setExecutionLog([]); setNodeStatus({}); setRunStatus('idle')
   }, [])
 
   const handleGenerate = useCallback(async (task: string) => {
     setGenerating(true)
     try {
       const result = await window.dubhe.spec.generate(task)
-      if (result.spec) {
-        setSpec(result.spec as WorkflowSpec)
-        setExecutionLog([])
-        setNodeStatus({})
-      }
+      if (result.spec) { setSpec(result.spec as WorkflowSpec); setRunStatus('idle') }
       await loadWorkflows()
       return result
-    } finally {
-      setGenerating(false)
-    }
+    } finally { setGenerating(false) }
   }, [loadWorkflows])
 
-  // ===== 工作流执行 =====
-  const runWorkflow = useCallback(() => {
+  // ===== 工作流执行(共享)=====
+  const runWorkflow = useCallback((input: string = '') => {
     if (!spec) return
-    setRunning(true)
+    setRunStatus('running')
     setNodeStatus({})
     setExecutionLog([])
+    setAskUserQuestions(null)
     setSelectedNodeId(null)
 
-    const cancel = window.dubhe.spec.run(
-      { spec: spec as object, input: {} },
+    const { cancel, runId } = window.dubhe.spec.run(
+      { spec: spec as object, input: input ? { task: input } : {} },
       (event) => {
-        const e = event as {
-          type: string
-          nodeId?: string
-          nodeType?: string
-          output?: Record<string, unknown>
-          error?: string
-        }
+        const e = event as { type: string; nodeId?: string; nodeType?: string; output?: Record<string, unknown>; error?: string; questions?: unknown[] }
         if (e.type === 'step_start' && e.nodeId) {
           setNodeStatus((s) => ({ ...s, [e.nodeId!]: 'running' }))
-          setExecutionLog((log) => [
-            ...log,
-            {
-              nodeId: e.nodeId!,
-              nodeType: e.nodeType ?? '',
-              status: 'running',
-              timestamp: Date.now()
-            }
-          ])
+          setExecutionLog((log) => [...log, { nodeId: e.nodeId!, nodeType: e.nodeType ?? '', status: 'running' as const, timestamp: Date.now() }])
         }
         if (e.type === 'step_done' && e.nodeId) {
           setNodeStatus((s) => ({ ...s, [e.nodeId!]: 'succeeded' }))
-          const outputText =
-            (e.output?.text as string) ??
-            (e.output?.patch as string) ??
-            JSON.stringify(e.output ?? {}, null, 2)
-          setExecutionLog((log) =>
-            log.map((entry) =>
-              entry.nodeId === e.nodeId
-                ? { ...entry, status: 'succeeded' as const, output: outputText }
-                : entry
-            )
-          )
+          const out = (e.output?.text as string) ?? (e.output?.patch as string) ?? JSON.stringify(e.output ?? {}, null, 2)
+          setExecutionLog((log) => log.map(en => en.nodeId === e.nodeId ? { ...en, status: 'succeeded' as const, output: out } : en))
         }
         if (e.type === 'step_failed' && e.nodeId) {
           setNodeStatus((s) => ({ ...s, [e.nodeId!]: 'failed' }))
-          setExecutionLog((log) =>
-            log.map((entry) =>
-              entry.nodeId === e.nodeId
-                ? { ...entry, status: 'failed' as const, error: e.error ?? '未知错误' }
-                : entry
-            )
-          )
+          setExecutionLog((log) => log.map(en => en.nodeId === e.nodeId ? { ...en, status: 'failed' as const, error: e.error ?? '未知错误' } : en))
         }
+        if (e.type === 'ask_user' && e.questions) {
+          setAskUserQuestions(e.questions)
+          setActiveRunId(runId)
+        }
+        if (e.type === 'run_done') { setRunStatus('succeeded') }
+        if (e.type === 'run_failed') { setRunStatus('failed') }
       },
-      () => {
-        setRunning(false)
-        runCancelRef.current = null
-      },
+      () => { setRunStatus('succeeded'); runCancelRef.current = null },
       (error) => {
-        setRunning(false)
-        runCancelRef.current = null
-        setExecutionLog((log) => [
-          ...log,
-          {
-            nodeId: 'run',
-            nodeType: 'run',
-            status: 'failed',
-            error,
-            timestamp: Date.now()
-          }
-        ])
+        setRunStatus('failed'); runCancelRef.current = null
+        setExecutionLog((log) => [...log, { nodeId: 'run', nodeType: 'run', status: 'failed' as const, error, timestamp: Date.now() }])
       }
     )
     runCancelRef.current = cancel
@@ -222,24 +168,36 @@ export default function App() {
 
   const stopRun = useCallback(() => {
     runCancelRef.current?.()
-    setRunning(false)
+    setRunStatus('idle')
+    setAskUserQuestions(null)
   }, [])
 
-  // ===== 工作流列表回调 =====
-  const handleWorkflowPin = useCallback(
-    async (id: string) => {
-      await window.dubhe.db.workflows.togglePin(id)
-      await loadWorkflows()
-    },
-    [loadWorkflows]
-  )
+  // ===== ask_user 响应 =====
+  const handleAskUserRespond = useCallback((answers: Record<string, string>) => {
+    if (activeRunId) {
+      window.dubhe.spec.respond(activeRunId, answers).catch(console.error)
+    }
+    setAskUserQuestions(null)
+  }, [activeRunId])
 
-  const handleWorkflowDelete = useCallback(
-    async (id: string) => {
-      await window.dubhe.db.workflows.delete(id)
-      await loadWorkflows()
-    },
-    [loadWorkflows]
+  // ===== 工作流列表回调 =====
+  const handleWorkflowPin = useCallback(async (id: string) => {
+    await window.dubhe.db.workflows.togglePin(id); await loadWorkflows()
+  }, [loadWorkflows])
+  const handleWorkflowDelete = useCallback(async (id: string) => {
+    await window.dubhe.db.workflows.delete(id); await loadWorkflows()
+  }, [loadWorkflows])
+
+  // ===== 画布操作栏 =====
+  const canvasActions = (
+    <>
+      {spec && runStatus !== 'running' && (
+        <button className="panel__action" onClick={() => runWorkflow('')}>▶ 执行</button>
+      )}
+      {runStatus === 'running' && (
+        <button className="panel__action panel__action--danger" onClick={stopRun}>⏹ 停止</button>
+      )}
+    </>
   )
 
   return (
@@ -249,9 +207,7 @@ export default function App() {
           <span className="app__logo">枢</span>
           <div className="app__title-group">
             <h1 className="app__title">DubheFlow · 天枢</h1>
-            <span className="app__subtitle">
-              {spec ? spec.goal : 'Godot 游戏开发一体化工作站'}
-            </span>
+            <span className="app__subtitle">{spec ? spec.goal : 'Godot 游戏开发一体化工作站'}</span>
           </div>
         </div>
       </header>
@@ -266,62 +222,49 @@ export default function App() {
           onNewConversation={handleNewConversation}
           onWorkflowClick={handleWorkflowClick}
           onNewWorkflow={handleNewWorkflow}
-          onWorkflowListClick={handleWorkflowListClick}
-          onSettingsClick={handleSettingsClick}
+          onWorkflowListClick={() => setActiveView('workflow-list')}
+          onSettingsClick={() => setActiveView('settings')}
         />
 
         <main className="app__main">
           {activeView === 'chat' && (
             <div className="split-view">
               <section className="panel panel--chat">
-                <div className="panel__header">对话</div>
-                <ChatPanel
-                  conversationId={activeConversationId}
-                  onGenerateWorkflow={handleGenerate}
-                  generating={generating}
-                />
+                <div className="panel__header">
+                  {chatWorkflowId ? '工作流执行' : '对话'}
+                </div>
+                {chatWorkflowId ? (
+                  <WorkflowRunner
+                    workflows={workflows}
+                    selectedWorkflowId={chatWorkflowId}
+                    onSelectWorkflow={handleChatWorkflowSelect}
+                    runStatus={runStatus}
+                    askUserQuestions={askUserQuestions}
+                    onAskUserRespond={handleAskUserRespond}
+                    executionLog={executionLog}
+                    onRun={runWorkflow}
+                    onStop={stopRun}
+                  />
+                ) : (
+                  <ChatPanel
+                    conversationId={activeConversationId}
+                    onGenerateWorkflow={handleGenerate}
+                    generating={generating}
+                  />
+                )}
               </section>
               <div className="split-view__right">
                 <section className="panel panel--canvas">
-                  <div className="panel__header">
-                    画布
-                    {spec && !running && (
-                      <button className="panel__action" onClick={runWorkflow}>
-                        ▶ 执行
-                      </button>
-                    )}
-                    {running && (
-                      <button className="panel__action panel__action--danger" onClick={stopRun}>
-                        ⏹ 停止
-                      </button>
-                    )}
-                  </div>
-                  <Canvas
-                    spec={spec}
-                    nodeStatus={nodeStatus}
-                    onNodeClick={setSelectedNodeId}
-                    selectedNodeId={selectedNodeId}
-                  />
+                  <div className="panel__header">画布 {canvasActions}</div>
+                  <Canvas spec={spec} nodeStatus={nodeStatus} onNodeClick={setSelectedNodeId} selectedNodeId={selectedNodeId} />
                 </section>
-                <ExecutionPanel
-                  log={executionLog}
-                  collapsed={execCollapsed}
-                  onToggle={() => setExecCollapsed((v) => !v)}
-                  selectedNodeId={selectedNodeId}
-                  onNodeSelect={setSelectedNodeId}
-                />
+                <ExecutionPanel log={executionLog} collapsed={execCollapsed} onToggle={() => setExecCollapsed(v => !v)} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
               </div>
             </div>
           )}
 
           {activeView === 'workflow-list' && (
-            <WorkflowList
-              workflows={workflows}
-              onOpen={handleWorkflowClick}
-              onPin={handleWorkflowPin}
-              onDelete={handleWorkflowDelete}
-              onNew={handleNewWorkflow}
-            />
+            <WorkflowList workflows={workflows} onOpen={handleWorkflowClick} onPin={handleWorkflowPin} onDelete={handleWorkflowDelete} onNew={handleNewWorkflow} />
           )}
 
           {activeView === 'workflow-editor' && (
@@ -332,41 +275,16 @@ export default function App() {
               </section>
               <div className="split-view__right">
                 <section className="panel panel--canvas">
-                  <div className="panel__header">
-                    画布
-                    {spec && !running && (
-                      <button className="panel__action" onClick={runWorkflow}>
-                        ▶ 执行
-                      </button>
-                    )}
-                    {running && (
-                      <button className="panel__action panel__action--danger" onClick={stopRun}>
-                        ⏹ 停止
-                      </button>
-                    )}
-                  </div>
-                  <Canvas
-                    spec={spec}
-                    nodeStatus={nodeStatus}
-                    onNodeClick={setSelectedNodeId}
-                    selectedNodeId={selectedNodeId}
-                  />
+                  <div className="panel__header">画布 {canvasActions}</div>
+                  <Canvas spec={spec} nodeStatus={nodeStatus} onNodeClick={setSelectedNodeId} selectedNodeId={selectedNodeId} />
                 </section>
-                <ExecutionPanel
-                  log={executionLog}
-                  collapsed={execCollapsed}
-                  onToggle={() => setExecCollapsed((v) => !v)}
-                  selectedNodeId={selectedNodeId}
-                  onNodeSelect={setSelectedNodeId}
-                />
+                <ExecutionPanel log={executionLog} collapsed={execCollapsed} onToggle={() => setExecCollapsed(v => !v)} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
               </div>
             </div>
           )}
 
           {activeView === 'settings' && (
-            <section className="panel panel--settings">
-              <Settings />
-            </section>
+            <section className="panel panel--settings"><Settings /></section>
           )}
         </main>
       </div>
@@ -375,12 +293,10 @@ export default function App() {
         {info ? (
           <span>
             天枢 v{info.version} · Electron {info.electron} · Node {info.node} · {info.platform}
-            {running ? ' · 执行中…' : ''}
+            {runStatus === 'running' ? ' · 执行中…' : ''}
             {generating ? ' · 生成中…' : ''}
           </span>
-        ) : (
-          <span>加载中…</span>
-        )}
+        ) : <span>加载中…</span>}
       </footer>
     </div>
   )

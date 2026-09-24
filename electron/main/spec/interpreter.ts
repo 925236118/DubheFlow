@@ -23,6 +23,7 @@ export type RunEvent =
   | { type: 'step_done'; nodeId: string; output: Record<string, unknown> }
   | { type: 'step_failed'; nodeId: string; error: string }
   | { type: 'step_skipped'; nodeId: string; reason: string }
+  | { type: 'ask_user'; nodeId: string; nodeType: string; questions: unknown }
   | { type: 'verify_result'; nodeId: string; success: boolean; reason: string }
   | { type: 'run_done'; runId: string; cost: number }
   | { type: 'run_failed'; runId: string; error: string }
@@ -40,6 +41,8 @@ export interface ExecutorDeps {
     req: InvokeRequest,
     signal?: AbortSignal
   ) => AsyncIterable<ChatChunk>
+  /** 阻塞等待用户回答 ask_user 节点的问题 */
+  askUser: (questions: unknown[]) => Promise<Record<string, unknown>>
 }
 
 // ===== 主入口:执行 spec =====
@@ -73,9 +76,20 @@ export async function* runSpec(
     yield { type: 'step_start', nodeId: node.id, nodeType: node.type, attempt: 0 }
 
     try {
+      // ask_user 节点:先发问题事件,再阻塞等待用户回答
+      if (node.type === 'ask_user') {
+        const resolvedArgs = deepInterpolate(node.args, ctx) as Record<string, unknown>
+        const questions = resolvedArgs.questions
+        yield {
+          type: 'ask_user',
+          nodeId: node.id,
+          nodeType: 'ask_user',
+          questions
+        }
+      }
+
       const output = await executeNode(node, ctx, deps, signal, () => {
         // 流式输出(通过事件机制无法在 async 函数内 yield,改用回调)
-        // 实际由调用方在 step_start 后监听 — 此处简化为收集
       })
 
       // 记录产出到上下文
@@ -141,6 +155,11 @@ async function executeNode(
       return executeVerify(node, resolvedArgs, ctx)
     case 'collect':
       return { collected: resolvedArgs.fields }
+    case 'ask_user':
+      // 阻塞等待用户回答(问题已在 runSpec 中 yield 给 UI)
+      const questions = (resolvedArgs.questions as unknown[]) ?? []
+      const answers = await deps.askUser(questions)
+      return { answers }
     case 'require':
       return { valid: true }
     case 'approve':

@@ -957,3 +957,211 @@ body {
   border-width: 3px !important;
   box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(108,140,255,0.3) !important;
 }
+
+/* ===== 工作流生成器加载状态 ===== */
+.wf-gen__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+}
+.wf-gen__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== ask_user 问题表单 ===== */
+.ask-form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+.ask-form__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.ask-form__question {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ask-form__label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.ask-form__options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ask-form__option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.ask-form__option:hover { background: var(--bg-elevated); }
+.ask-form__option input { accent-color: var(--accent); }
+.ask-form__input {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+.ask-form__input:focus { border-color: var(--accent); }
+.ask-form__fallback {
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg-base);
+}
+.ask-form__textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  user-select: text;
+}
+.ask-form__textarea:focus { border-color: var(--accent); }
+.ask-form__submit { align-self: flex-start; }
+
+/* ===== 工作流执行器(对话页)===== */
+.wf-runner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+}
+.wf-runner__selector {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-runner__label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.wf-runner__select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+.wf-runner__select:focus { border-color: var(--accent); }
+.wf-runner__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.wf-runner__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border: 2px solid;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.wf-runner__status--running {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  50% { box-shadow: 0 0 12px rgba(108,140,255,0.2); }
+}
+.wf-runner__status-icon {
+  font-size: 20px;
+}
+.wf-runner__status-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+.wf-runner__input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wf-runner__input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  user-select: text;
+}
+.wf-runner__input:focus { border-color: var(--accent); }
+.wf-runner__log {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.wf-runner__log-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.wf-runner__log-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.wf-runner__log-node { font-family: monospace; color: var(--accent); }
+.wf-runner__log-type { color: var(--text-muted); font-size: 11px; }
+.wf-runner__log-output {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  background: var(--bg-base);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 100px;
+  overflow-y: auto;
+}
+.wf-runner__log-error { color: var(--danger); font-size: 12px; }

@@ -62,6 +62,21 @@ export const BUILTIN_PRIMITIVES: Record<string, PrimitiveDef> = {
       payload: { type: 'json', description: '审批材料(如 diff)' }
     }
   },
+  ask_user: {
+    type: 'ask_user',
+    category: 'input',
+    description: '向用户发起问题,阻塞等待输入。支持选项题和文本题,软件侧自动添加"都不符合我的想法"输入框',
+    args: {
+      questions: {
+        type: 'json',
+        required: true,
+        description: '问题列表 [{id, text, options?: string[], placeholder?: string}]'
+      }
+    },
+    outputs: {
+      answers: { type: 'json' }
+    }
+  },
 
   // ----- 生成 -----
   llm_generate: {

@@ -115,7 +115,7 @@ const api = {
       onEvent: (event: unknown) => void,
       onDone: () => void,
       onError: (error: string) => void
-    ): (() => void) => {
+    ): { cancel: () => void; runId: string } => {
       const runId = `run_${Date.now()}_${Math.random().toString(36).slice(2)}`
 
       const eventListener = (
@@ -142,13 +142,18 @@ const api = {
       ipcRenderer.on('interpreter:error', errorListener)
       ipcRenderer.invoke('interpreter:run', { options, runId })
 
-      return () => {
+      const cancel = () => {
         ipcRenderer.removeListener('interpreter:event', eventListener)
         ipcRenderer.removeListener('interpreter:done', doneListener)
         ipcRenderer.removeListener('interpreter:error', errorListener)
         ipcRenderer.invoke('interpreter:cancel', runId)
       }
-    }
+      return { cancel, runId }
+    },
+
+    // 用户回答 ask_user 问题
+    respond: (runId: string, answers: Record<string, unknown>) =>
+      ipcRenderer.invoke('interpreter:respond', { runId, answers })
   },
 
   // ===== Git 快照 =====

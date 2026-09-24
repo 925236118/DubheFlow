@@ -136,7 +136,15 @@ function Section({
         >
           {expanded ? '▾' : '▸'} {title}
         </span>
-        <button className="sidebar__add" onClick={onAdd} title={`新建${title}`}>
+        <button
+          className="sidebar__add"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onAdd()
+          }}
+          title={`新建${title}`}
+        >
           +
         </button>
       </div>
