@@ -1,25 +1,11 @@
-feat: 执行日志按节点类型格式化 + 显示输入 + ask_user 规范化
+fix: collect 节点改为交互收集(复用 ask_user 机制)
 
-== 执行日志改进 ==
-- step_done 事件携带 input(解析后的 args)+ output
-- formatNodeOutput: 按节点类型格式化输出
-  - llm_generate → 显示生成的文本(非 JSON)
-  - verify → ✓ 通过 / ✕ 失败 — 原因
-  - ask_user → 用户回答(非空 JSON)
-  - collect → 收集: theme, style
-  - require → ✓ 校验通过 / ✕ 校验失败
-  - assemble → 拼装完成
-  - split → 拆分: art, music, code
-- formatNodeInput: 显示输入
-  - llm_generate → 提示: <prompt 截断>
-  - verify → 标准: <criteria 截断>
-- 执行日志每步显示 📥 输入 + 输出(非原始 JSON)
+collect 之前只返回字段名,不实际收集用户输入。
+现在 collect 节点:
+1. 把 args.fields 转为问题列表(collectFieldsToQuestions)
+   支持多种格式:字符串数组 / 对象数组 / 字段定义对象
+2. 在 runSpec 中 yield ask_user 事件(复用交互阻塞)
+3. executeNode 中调 deps.askUser 阻塞等待用户填写
+4. 返回 { collected: { field: value } } 供下游节点引用
 
-== ask_user 规范化 ==
-- AI 可能生成 {question, options} 而非 [{id, text, options}]
-- normalizeQuestions 自动转换:对象→数组、字符串→单问题
-- 不再因格式不符导致 questions.every 崩溃
-
-== Interpreter 重构 ==
-- deepInterpolate 移到 runSpec,executeNode 接收已解析的 args
-- 避免重复解析,step_done 可携带 input
+执行到 collect 节点时弹出表单,用户填写后继续。

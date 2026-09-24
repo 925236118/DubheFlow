@@ -79,15 +79,14 @@ export async function* runSpec(
       // 解析数据流(把 {{ }} / $ref 替换为实际值)
       const resolvedArgs = deepInterpolate(node.args, ctx) as Record<string, unknown>
 
-      // ask_user 节点:规范化问题格式后发事件,再阻塞等待用户回答
+      // ask_user / collect 节点:发送问题事件,阻塞等待用户回答
       if (node.type === 'ask_user') {
         const questions = normalizeQuestions(resolvedArgs.questions)
-        yield {
-          type: 'ask_user',
-          nodeId: node.id,
-          nodeType: 'ask_user',
-          questions
-        }
+        yield { type: 'ask_user', nodeId: node.id, nodeType: 'ask_user', questions }
+      }
+      if (node.type === 'collect') {
+        const questions = collectFieldsToQuestions(resolvedArgs.fields)
+        yield { type: 'ask_user', nodeId: node.id, nodeType: 'collect', questions }
       }
 
       const output = await executeNode(node, resolvedArgs, ctx, deps, signal, () => {})
@@ -158,6 +157,45 @@ function normalizeQuestions(questions: unknown): unknown[] {
   return []
 }
 
+// ===== 把 collect 的 fields 转成问题列表(复用 ask_user 交互)=====
+function collectFieldsToQuestions(fields: unknown): unknown[] {
+  // 数组格式:["theme", "style"] 或 [{id, label, options}, ...]
+  if (Array.isArray(fields)) {
+    return fields.map((f, i) => {
+      if (typeof f === 'string') {
+        return { id: f, text: `请输入 ${f}`, placeholder: `输入 ${f}…` }
+      }
+      if (f && typeof f === 'object') {
+        const obj = f as Record<string, unknown>
+        const id = String(obj.id || obj.key || obj.name || `field_${i}`)
+        return {
+          id,
+          text: String(obj.label || obj.text || obj.desc || `请输入 ${id}`),
+          placeholder: obj.placeholder as string | undefined,
+          options: Array.isArray(obj.options) ? obj.options : undefined
+        }
+      }
+      return { id: `field_${i}`, text: String(f) }
+    })
+  }
+  // 对象格式:{theme: {type, required, desc}, ...}
+  if (fields && typeof fields === 'object') {
+    return Object.entries(fields).map(([key, val]) => {
+      if (val && typeof val === 'object') {
+        const v = val as Record<string, unknown>
+        return {
+          id: key,
+          text: String(v.label || v.desc || v.description || `请输入 ${key}`),
+          placeholder: v.placeholder as string | undefined,
+          options: Array.isArray(v.options) || Array.isArray(v.values) ? (v.options || v.values) : undefined
+        }
+      }
+      return { id: key, text: `请输入 ${key}` }
+    })
+  }
+  return []
+}
+
 // ===== 执行单个节点(接收已解析的 args)=====
 async function executeNode(
   node: SpecNode,
@@ -174,8 +212,12 @@ async function executeNode(
       return executeGenerate(node, args, ctx, deps, signal, onDelta)
     case 'verify':
       return executeVerify(node, args, ctx)
-    case 'collect':
-      return { collected: args.fields }
+    case 'collect': {
+      // 把 fields 转成问题,复用 ask_user 的交互阻塞机制
+      const questions = collectFieldsToQuestions(args.fields)
+      const collected = await deps.askUser(questions)
+      return { collected }
+    }
     case 'ask_user':
       // 阻塞等待用户回答(问题已在 runSpec 中 yield 给 UI)
       const questions = (args.questions as unknown[]) ?? []
