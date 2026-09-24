@@ -12,6 +12,7 @@ interface ChatViewProps {
   workflows: WorkflowItem[]
   chatWorkflowId: string | null
   onSelectWorkflow: (id: string | null) => void
+  onNewWorkflow: () => void
   // 对话
   conversationId: string | null
   // 执行状态(由 App 管理)
@@ -35,7 +36,7 @@ const STATUS_TEXT: Record<RunStatus, string> = {
 }
 
 export default function ChatView({
-  workflows, chatWorkflowId, onSelectWorkflow,
+  workflows, chatWorkflowId, onSelectWorkflow, onNewWorkflow,
   conversationId, runStatus, executionLog, askUserQuestions,
   onAskUserRespond, onRun, onStop
 }: ChatViewProps) {
@@ -51,6 +52,23 @@ export default function ChatView({
   const taRef = useRef<HTMLTextAreaElement>(null)
   const autoScrollRef = useRef(true)
   const [showJump, setShowJump] = useState(false)
+  const [showPopup, setShowPopup] = useState(false)
+  const popupRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+
+  // ===== 点击弹出外部关闭 =====
+  useEffect(() => {
+    if (!showPopup) return
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (popupRef.current && !popupRef.current.contains(t) &&
+          barRef.current && !barRef.current.contains(t)) {
+        setShowPopup(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPopup])
 
   // ===== 加载对话历史 =====
   useEffect(() => {
@@ -167,25 +185,70 @@ export default function ChatView({
 
   return (
     <div className="chat-view">
-      {/* 工作流选择器(始终显示) */}
-      <div className="chat-view__bar">
-        <select
-          className="chat-view__select"
-          value={chatWorkflowId ?? ''}
+      {/* 工作流选择栏(始终显示) */}
+      <div className="chat-view__bar" ref={barRef}>
+        <button
+          className={`chat-view__mode ${!isWorkflow ? 'is-active' : ''}`}
           disabled={running}
-          onChange={(e) => onSelectWorkflow(e.target.value || null)}
+          onClick={() => onSelectWorkflow(null)}
         >
-          <option value="">💬 普通对话</option>
-          {workflows.map(w => (
-            <option key={w.id} value={w.id}>{w.pinned ? '★ ' : '⚡ '}{w.name}</option>
-          ))}
-        </select>
+          💬 普通对话
+        </button>
+        {isWorkflow ? (
+          <>
+            <span className="chat-view__bar-sep">|</span>
+            <span className="chat-view__wf-name">
+              {workflows.find((w) => w.id === chatWorkflowId)?.name ?? chatWorkflowId}
+            </span>
+            <button
+              className="chat-view__pick"
+              disabled={running}
+              onClick={() => setShowPopup(true)}
+            >
+              选择其他工作流
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="chat-view__bar-sep">|</span>
+            <button className="chat-view__pick" onClick={() => setShowPopup(true)}>
+              选择工作流
+            </button>
+          </>
+        )}
         {isWorkflow && (
           <span className={`chat-view__status chat-view__status--${runStatus}`}>
             {STATUS_TEXT[runStatus]}
           </span>
         )}
       </div>
+
+      {/* 工作流选择弹出列表 */}
+      {showPopup && (
+        <div className="wf-popup" ref={popupRef}>
+          {workflows.length === 0 ? (
+            <div className="wf-popup__empty">暂无工作流</div>
+          ) : (
+            workflows.map((w) => (
+              <div
+                key={w.id}
+                className={`wf-popup__item ${w.id === chatWorkflowId ? 'is-active' : ''}`}
+                onClick={() => { onSelectWorkflow(w.id); setShowPopup(false) }}
+              >
+                <span className="wf-popup__icon">{w.pinned ? '★' : '⚡'}</span>
+                <span className="wf-popup__name">{w.name}</span>
+              </div>
+            ))
+          )}
+          <div
+            className="wf-popup__item wf-popup__item--new"
+            onClick={() => { onNewWorkflow(); setShowPopup(false) }}
+          >
+            <span className="wf-popup__icon">+</span>
+            <span className="wf-popup__name">生成新工作流</span>
+          </div>
+        </div>
+      )}
 
       {/* 内容区 */}
       <div className="chat-view__content" ref={scrollRef} onScroll={handleScroll}>

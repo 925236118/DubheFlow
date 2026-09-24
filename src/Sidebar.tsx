@@ -32,7 +32,6 @@ interface SidebarProps {
 
 export default function Sidebar(props: SidebarProps) {
   const [convExpanded, setConvExpanded] = useState(true)
-  const [wfExpanded, setWfExpanded] = useState(true)
 
   return (
     <aside className="sidebar">
@@ -66,35 +65,25 @@ export default function Sidebar(props: SidebarProps) {
         )}
       </Section>
 
-      {/* 工作流区 */}
-      <Section
-        title="工作流"
-        expanded={wfExpanded}
-        onToggle={() => setWfExpanded((v) => !v)}
-        onAdd={props.onNewWorkflow}
-        onHeaderClick={props.onWorkflowListClick}
-      >
-        {props.workflows.length === 0 ? (
-          <div className="sidebar__empty">暂无工作流</div>
-        ) : (
-          props.workflows.map((w) => (
-            <div
-              key={w.id}
-              className={`sidebar__item ${
-                props.activeView === 'workflow-editor' ? 'is-active' : ''
-              }`}
-              onClick={() => props.onWorkflowClick(w.id)}
-            >
-              {w.pinned ? (
-                <span className="sidebar__item-pin">★</span>
-              ) : (
-                <span className="sidebar__item-icon">⚡</span>
-              )}
-              <span className="sidebar__item-text">{w.name}</span>
-            </div>
-          ))
-        )}
-      </Section>
+      {/* 工作流区(不展开列表,点标题进工作流列表页) */}
+      <div className="sidebar__section">
+        <div className="sidebar__section-header">
+          <span
+            className="sidebar__section-title"
+            onClick={props.onWorkflowListClick}
+          >
+            ⚡ 工作流
+          </span>
+          <button
+            className="sidebar__add"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); props.onNewWorkflow() }}
+            title="新建工作流"
+          >
+            +
+          </button>
+        </div>
+      </div>
 
       {/* 底部设置 */}
       <div className="sidebar__bottom">

@@ -108,10 +108,11 @@ export default function App() {
   }, [])
 
   // ===== 工作流生成 =====
-  const handleGenerated = useCallback((newSpec: object) => {
+  const handleGenerated = useCallback(async (newSpec: object) => {
     setSpec(newSpec as WorkflowSpec)
     setExecutionLog([]); setNodeStatus({}); setRunStatus('idle')
-  }, [])
+    await loadWorkflows()
+  }, [loadWorkflows])
 
   // ===== 工作流执行(共享)=====
   const runWorkflow = useCallback((input: string = '') => {
@@ -225,6 +226,7 @@ export default function App() {
                   workflows={workflows}
                   chatWorkflowId={chatWorkflowId}
                   onSelectWorkflow={handleChatWorkflowSelect}
+                  onNewWorkflow={handleNewWorkflow}
                   conversationId={activeConversationId}
                   runStatus={runStatus}
                   executionLog={executionLog}
