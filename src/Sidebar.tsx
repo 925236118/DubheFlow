@@ -23,6 +23,7 @@ interface SidebarProps {
   activeView: MainView
   onConversationClick: (id: string) => void
   onNewConversation: () => void
+  onShowConversations: () => void
   onWorkflowClick: (id: string) => void
   onNewWorkflow: () => void
   onWorkflowListClick: () => void
@@ -47,7 +48,7 @@ export default function Sidebar(props: SidebarProps) {
         expanded={convExpanded}
         onToggle={() => setConvExpanded((v) => !v)}
         onAdd={props.onNewConversation}
-        onHeaderClick={() => {}}
+        onHeaderClick={props.onShowConversations}
       >
         {props.conversations.length === 0 ? (
           <div className="sidebar__empty">暂无对话</div>

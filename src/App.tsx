@@ -55,12 +55,13 @@ export default function App() {
 
   // ===== 侧边栏回调 =====
   const handleNewConversation = useCallback(async () => {
+    // 先切换视图,确保即使 DB 失败也能回到对话页
+    setChatWorkflowId(null)
+    setActiveView('chat')
     try {
       const id = await window.dubhe.db.conversations.create('新对话')
       await loadConversations()
       setActiveConversationId(id)
-      setChatWorkflowId(null)
-      setActiveView('chat')
     } catch (err) { console.error('创建对话失败:', err) }
   }, [loadConversations])
 
@@ -220,6 +221,7 @@ export default function App() {
           activeView={activeView}
           onConversationClick={handleConversationClick}
           onNewConversation={handleNewConversation}
+          onShowConversations={() => { setChatWorkflowId(null); setActiveView('chat') }}
           onWorkflowClick={handleWorkflowClick}
           onNewWorkflow={handleNewWorkflow}
           onWorkflowListClick={() => setActiveView('workflow-list')}

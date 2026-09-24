@@ -1,37 +1,9 @@
-feat: ask_user 交互节点 + 工作流执行器视图 + 生成中状态 + 修复
+fix: 新建对话按钮无法回到对话页
 
-== ask_user 原语(交互阻塞节点)==
-- primitives.ts: 新增 ask_user(向用户发起问题,阻塞等待输入)
-  args: questions [{id, text, options?, placeholder?}]
-  outputs: answers { question_id: answer }
-- interpreter.ts: 
-  - runSpec 遇 ask_user 节点先 yield 事件(含 questions)
-  - executeNode 调 deps.askUser() 阻塞等待用户回答
-  - ExecutorDeps 新增 askUser 字段
-  - RunEvent 新增 ask_user 类型
-- spec.ts IPC: askUser 实现(promise + pendingResponses Map)
-  interpreter:respond 处理器:用户回答 → resolve promise → 继续执行
-- preload: run 返回 { cancel, runId } + respond 方法
-- AskUserForm.tsx: 问题表单(选项题 radio / 文本题 input)
-  统一"都不符合我的想法"输入框(填了则覆盖所有答案)
+根因:setActiveView 在 try 块内,DB 调用失败时不执行;
+对话标题点击为空函数不切换视图。
 
-== 对话页 → 工作流执行器 ==
-- WorkflowRunner.tsx: 替代 ChatPanel(当选择了工作流时)
-  - 工作流选择器(下拉)
-  - 状态卡片(未开始/执行中/已成功/已失败,带颜色和图标)
-  - 输入区(传入第一个参数)
-  - 执行中显示 AskUserForm
-  - 精简执行日志
-  - 完成后可重新执行
-- App.tsx: 对话页根据 chatWorkflowId 切换 ChatPanel / WorkflowRunner
-  runStatus 状态管理(idle/running/succeeded/failed)
-  ask_user 事件 → setAskUserQuestions → WorkflowRunner 显示表单
-  respond → window.dubhe.spec.respond(runId, answers)
-
-== 生成中状态 ==
-- WorkflowGenerator: generating 时显示 spinner + "AI 正在生成工作流,请稍候…"
-  醒目的蓝色加载条,替代之前不明显的按钮文字变化
-
-== 修复 ==
-- Sidebar + 按钮:加 type="button" + e.stopPropagation()
-- handleNewConversation:加 try-catch 错误处理
+修复:
+- handleNewConversation 先切视图再建对话(DB 失败也能回到对话页)
+- 对话标题可点击切换到对话页(与工作流标题行为一致)
+- + 按钮从 18px 加大到 24px,更容易点击
