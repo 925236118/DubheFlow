@@ -54,13 +54,13 @@ function getCategoryColor(type: string): string {
 
 // ===== 自定义节点 =====
 function SpecNodeView({ data }: NodeProps) {
-  const d = data as { type: string; status: string; label: string; goal?: string }
+  const d = data as { type: string; status: string; label: string; goal?: string; selected?: boolean }
   const catColor = getCategoryColor(d.type)
   const statusColor = STATUS_COLORS[d.status] ?? STATUS_COLORS.pending
 
   return (
     <div
-      className="rf-node"
+      className={`rf-node ${d.selected ? 'rf-node--selected' : ''}`}
       style={{ borderColor: statusColor, boxShadow: `0 0 0 1px ${catColor}40` }}
     >
       <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
@@ -152,23 +152,29 @@ function layoutEdges(edges: WorkflowSpec['edges']): Edge[] {
 interface CanvasProps {
   spec: WorkflowSpec | null
   nodeStatus?: Record<string, string>
+  onNodeClick?: (nodeId: string) => void
+  selectedNodeId?: string | null
 }
 
-export default function Canvas({ spec, nodeStatus }: CanvasProps) {
+export default function Canvas({ spec, nodeStatus, onNodeClick, selectedNodeId }: CanvasProps) {
   const nodes = useMemo(() => {
     if (!spec) return []
     return layoutNodes(spec.nodes, spec.edges).map((n) => ({
       ...n,
-      data: { ...n.data, status: nodeStatus?.[n.id] ?? 'pending' }
+      data: {
+        ...n.data,
+        status: nodeStatus?.[n.id] ?? 'pending',
+        selected: selectedNodeId === n.id
+      }
     }))
-  }, [spec, nodeStatus])
+  }, [spec, nodeStatus, selectedNodeId])
 
   const edges = useMemo(() => (spec ? layoutEdges(spec.edges) : []), [spec])
 
   if (!spec) {
     return (
       <div className="canvas-empty">
-        <p>暂无工作流。在对话中描述需求,AI 将生成工作流 spec。</p>
+        <p>暂无工作流。在工作流面板中点「+ 新建工作流」生成。</p>
       </div>
     )
   }
@@ -181,8 +187,9 @@ export default function Canvas({ spec, nodeStatus }: CanvasProps) {
       fitView
       nodesDraggable={false}
       nodesConnectable={false}
-      elementsSelectable={false}
+      elementsSelectable={true}
       proOptions={{ hideAttribution: true }}
+      onNodeClick={(_e, node) => onNodeClick?.(node.id)}
     >
       <Background color="#1c2030" gap={20} />
       <Controls showInteractive={false} />

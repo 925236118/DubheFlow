@@ -14,9 +14,11 @@ const MIN_TA_HEIGHT = 78
 const MAX_TA_HEIGHT = 138
 
 export default function ChatPanel({
+  conversationId,
   onGenerateWorkflow,
   generating
 }: {
+  conversationId?: string | null
   onGenerateWorkflow?: (task: string) => Promise<unknown>
   generating?: boolean
 }) {
@@ -26,9 +28,29 @@ export default function ChatPanel({
   const [showJump, setShowJump] = useState(false)
   const cancelRef = useRef<(() => void) | null>(null)
 
+  // ===== 加载对话历史 =====
+  useEffect(() => {
+    if (!conversationId) {
+      setMessages([])
+      return
+    }
+    window.dubhe.db.messages
+      .list(conversationId)
+      .then((msgs) => {
+        setMessages(
+          msgs.map((m) => ({
+            role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+            content: m.content
+          }))
+        )
+      })
+      .catch(console.error)
+  }, [conversationId])
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fullContentRef = useRef('')  // 累积 assistant 回复,用于持久化
 
   // ===== 输入框自适应高度 =====
   const adjustTextarea = useCallback(() => {
@@ -80,6 +102,12 @@ export default function ChatPanel({
         { role: 'assistant', content: '', streaming: true }
       ])
 
+      // 保存用户消息到 DB
+      fullContentRef.current = ''
+      if (conversationId) {
+        window.dubhe.db.messages.create(conversationId, 'user', text).catch(console.error)
+      }
+
       const req: ChatRequest = {
         capability: 'coding',
         messages: [...history, { role: 'user', content: text }],
@@ -89,6 +117,7 @@ export default function ChatPanel({
       const cancel = window.dubhe.provider.chatStream(
         req,
         (delta) => {
+          fullContentRef.current += delta
           setMessages((prev) => {
             const next = [...prev]
             const last = next[next.length - 1]
@@ -99,6 +128,12 @@ export default function ChatPanel({
           })
         },
         () => {
+          // 保存 assistant 回复到 DB
+          if (conversationId && fullContentRef.current) {
+            window.dubhe.db.messages
+              .create(conversationId, 'assistant', fullContentRef.current)
+              .catch(console.error)
+          }
           setMessages((prev) => {
             const next = [...prev]
             const last = next[next.length - 1]
@@ -128,7 +163,7 @@ export default function ChatPanel({
       )
       cancelRef.current = cancel
     },
-    [input, busy, messages]
+    [input, busy, messages, conversationId]
   )
 
   const stop = () => {
@@ -165,9 +200,9 @@ export default function ChatPanel({
       <div className="chat__messages" ref={scrollRef} onScroll={handleScroll}>
         {messages.length === 0 && (
           <div className="chat__empty">
-            <p>与 AI 对话,描述你的游戏开发需求。</p>
+            <p>选择左侧对话或新建对话开始。</p>
             <p className="chat__empty-hint">
-              当前默认路由:DeepSeek(coding)。可在「设置」中填入 API Key 并测试连通。
+              也可直接发送消息,AI 会回复。点「⚙ 工作流」可生成工作流。
             </p>
           </div>
         )}

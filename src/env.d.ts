@@ -110,6 +110,55 @@ interface DubheApi {
     diffStat: (projectPath: string, commit?: string) => Promise<string>
     branches: (projectPath: string) => Promise<string[]>
   }
+
+  db: {
+    conversations: {
+      list: () => Promise<{ id: string; title: string; kind: string; created_at: number }[]>
+      create: (title: string) => Promise<string>
+      delete: (convId: string) => Promise<boolean>
+      rename: (convId: string, title: string) => Promise<boolean>
+    }
+    messages: {
+      list: (
+        convId: string
+      ) => Promise<
+        {
+          id: string
+          role: string
+          content: string
+          model: string | null
+          tokens: number | null
+          created_at: number
+        }[]
+      >
+      create: (
+        convId: string,
+        role: string,
+        content: string,
+        model?: string,
+        tokens?: number
+      ) => Promise<string>
+    }
+    workflows: {
+      list: () => Promise<
+        {
+          id: string
+          name: string
+          description: string | null
+          tags: string | null
+          status: string
+          pinned: number
+          created_at: number
+        }[]
+      >
+      get: (
+        workflowId: string
+      ) => Promise<{ workflow: Record<string, unknown>; revision: Record<string, unknown> | null } | null>
+      togglePin: (workflowId: string) => Promise<boolean>
+      delete: (workflowId: string) => Promise<boolean>
+      rename: (workflowId: string, name: string, description?: string) => Promise<boolean>
+    }
+  }
 }
 
 interface Window {

@@ -1,24 +1,30 @@
-feat: Git 快照 + React Flow 可视化画布 (Phase 6-7)
+feat: 侧边栏布局 + 工作流管理 + 执行输出 + 对话持久化
 
-Phase 6 — 项目文件快照(git):
-- vcs/git.ts: GitOps 类,用 child_process spawn git
-  - isRepo/init/getHead/getCurrentBranch/isClean
-  - createRunBranch(commit agent/run_<id>)/deleteBranch
-  - commitStep(每步一个 commit)/tag(检查点锚点)
-  - diff/diffStat(git diff 三重用途:验证/审批/回退)
-  - revert(保留历史)/checkoutFile(选择性回退)
-  - listAgentBranches
-- IPC: git:status / git:diff / git:diffStat / git:branches
-- 铁律:永远不对用户分支 git reset --hard
+== 布局重构 ==
+- 左侧边栏(Sidebar):对话列表 + 工作流列表 + 设置(左下角)
+- 主面板路由:对话视图 / 工作流列表 / 工作流编辑器 / 设置
+- split-view:对话/生成器 + 画布并排,执行面板在画布下方
 
-Phase 7 — 可视化画布(React Flow):
-- @xyflow/react (React Flow v12) 接入
-- src/Canvas.tsx: 只读画布,渲染 spec 节点与边
-  - BFS 自动布局(分层 + 水平偏移)
-  - 自定义节点:类别色条 + 类型 + 标签
-  - 节点状态色:pending灰/running蓝/succeeded绿/failed红/deprecated橙
-  - smoothstep 连线 + fitView
-- App.tsx 集成:对话页右侧实时画布 + 独立画布视图
-  - ⚙ 工作流按钮:ChatPanel 触发 Planner 生成 spec
-  - ▶ 执行按钮:启动 Interpreter,节点状态实时更新
-- 面板操作按钮 + 画布空状态 + RF 主题适配 CSS
+== 工作流管理 ==
+- WorkflowList:工作流卡片列表,支持搜索/收藏置顶/删除
+- WorkflowGenerator:独立的工作流生成面板(不在对话中)
+  输入任务 → AI 生成 spec → 校验反馈 → 画布展示
+- DB migration v2:workflow.pinned 列
+- DB IPC:conversations/messages/workflows 的 CRUD
+
+== 执行输出 ==
+- ExecutionPanel:可折叠的执行输出面板
+  每步显示节点ID/类型/状态/产出文本,点击可选中对应画布节点
+- App 管理执行状态:step_start→running, step_done→succeeded+output,
+  step_failed→failed+error
+- 画布节点实时变色,选中节点高亮(rf-node--selected)
+
+== 对话持久化 ==
+- ChatPanel 接受 conversationId,加载历史消息
+- 发送时保存 user 消息到 DB,完成时保存 assistant 回复
+- 侧边栏新建对话 → 自动选中 → 对话列表实时刷新
+
+== 画布交互 ==
+- Canvas 支持 onNodeClick + selectedNodeId
+- 节点点击选中 → 执行面板对应条目高亮
+- 空状态文案更新(引导去工作流面板生成)

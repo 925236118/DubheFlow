@@ -159,6 +159,37 @@ const api = {
     diffStat: (projectPath: string, commit?: string) =>
       ipcRenderer.invoke('git:diffStat', projectPath, commit),
     branches: (projectPath: string) => ipcRenderer.invoke('git:branches', projectPath)
+  },
+
+  // ===== DB 数据访问层 =====
+  db: {
+    conversations: {
+      list: () => ipcRenderer.invoke('db:conversations:list'),
+      create: (title: string) => ipcRenderer.invoke('db:conversations:create', title),
+      delete: (convId: string) => ipcRenderer.invoke('db:conversations:delete', convId),
+      rename: (convId: string, title: string) =>
+        ipcRenderer.invoke('db:conversations:rename', convId, title)
+    },
+    messages: {
+      list: (convId: string) => ipcRenderer.invoke('db:messages:list', convId),
+      create: (
+        convId: string,
+        role: string,
+        content: string,
+        model?: string,
+        tokens?: number
+      ) =>
+        ipcRenderer.invoke('db:messages:create', convId, role, content, model, tokens)
+    },
+    workflows: {
+      list: () => ipcRenderer.invoke('db:workflows:list'),
+      get: (workflowId: string) => ipcRenderer.invoke('db:workflows:get', workflowId),
+      togglePin: (workflowId: string) =>
+        ipcRenderer.invoke('db:workflows:togglePin', workflowId),
+      delete: (workflowId: string) => ipcRenderer.invoke('db:workflows:delete', workflowId),
+      rename: (workflowId: string, name: string, description?: string) =>
+        ipcRenderer.invoke('db:workflows:rename', workflowId, name, description)
+    }
   }
 } as const
 

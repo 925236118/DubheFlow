@@ -30,6 +30,13 @@ const migrations: Migration[] = [
         Date.now()
       )
     }
+  },
+  {
+    version: 2,
+    description: '添加 workflow.pinned 列(工作流收藏置顶)',
+    up: (db) => {
+      db.exec('ALTER TABLE workflow ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0')
+    }
   }
 ]
 
