@@ -1,21 +1,19 @@
 import { useState } from 'react'
 
-interface WorkflowGeneratorProps {
-  onGenerated: (spec: object) => void
-  generating: boolean
-}
-
 export default function WorkflowGenerator({
-  onGenerated,
-  generating
-}: WorkflowGeneratorProps) {
+  onGenerated
+}: {
+  onGenerated: (spec: object) => void
+}) {
   const [task, setTask] = useState('')
+  const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [rawResponse, setRawResponse] = useState('')
 
   const handleGenerate = async () => {
     const text = task.trim()
-    if (!text || generating) return
+    if (!text || loading) return
+    setLoading(true)
     setErrors([])
     setRawResponse('')
 
@@ -30,6 +28,8 @@ export default function WorkflowGenerator({
       }
     } catch (err) {
       setErrors([err instanceof Error ? err.message : String(err)])
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -49,10 +49,10 @@ export default function WorkflowGenerator({
           placeholder="例如:为一个太空射击游戏创建敌人系统,包含敌人脚本、精灵图、行为树…"
           rows={6}
           value={task}
-          disabled={generating}
+          disabled={loading}
           onChange={(e) => setTask(e.target.value)}
         />
-        {generating ? (
+        {loading ? (
           <div className="wf-gen__loading">
             <span className="wf-gen__spinner" />
             <span>AI 正在生成工作流,请稍候…</span>

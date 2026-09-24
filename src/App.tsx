@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Sidebar, { type MainView } from './Sidebar'
-import ChatPanel from './ChatPanel'
 import Canvas from './Canvas'
 import Settings from './Settings'
 import WorkflowList from './WorkflowList'
 import WorkflowGenerator from './WorkflowGenerator'
-import WorkflowRunner from './WorkflowRunner'
+import ChatView from './ChatView'
 import ExecutionPanel, { type ExecutionLogEntry } from './ExecutionPanel'
 
 type RunStatus = 'idle' | 'running' | 'succeeded' | 'failed'
@@ -26,7 +25,6 @@ export default function App() {
   const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [execCollapsed, setExecCollapsed] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [info, setInfo] = useState<AppInfo | null>(null)
 
   // 执行状态
@@ -114,16 +112,6 @@ export default function App() {
     setSpec(newSpec as WorkflowSpec)
     setExecutionLog([]); setNodeStatus({}); setRunStatus('idle')
   }, [])
-
-  const handleGenerate = useCallback(async (task: string) => {
-    setGenerating(true)
-    try {
-      const result = await window.dubhe.spec.generate(task)
-      if (result.spec) { setSpec(result.spec as WorkflowSpec); setRunStatus('idle') }
-      await loadWorkflows()
-      return result
-    } finally { setGenerating(false) }
-  }, [loadWorkflows])
 
   // ===== 工作流执行(共享)=====
   const runWorkflow = useCallback((input: string = '') => {
@@ -232,28 +220,19 @@ export default function App() {
           {activeView === 'chat' && (
             <div className="split-view">
               <section className="panel panel--chat">
-                <div className="panel__header">
-                  {chatWorkflowId ? '工作流执行' : '对话'}
-                </div>
-                {chatWorkflowId ? (
-                  <WorkflowRunner
-                    workflows={workflows}
-                    selectedWorkflowId={chatWorkflowId}
-                    onSelectWorkflow={handleChatWorkflowSelect}
-                    runStatus={runStatus}
-                    askUserQuestions={askUserQuestions}
-                    onAskUserRespond={handleAskUserRespond}
-                    executionLog={executionLog}
-                    onRun={runWorkflow}
-                    onStop={stopRun}
-                  />
-                ) : (
-                  <ChatPanel
-                    conversationId={activeConversationId}
-                    onGenerateWorkflow={handleGenerate}
-                    generating={generating}
-                  />
-                )}
+                <div className="panel__header">对话</div>
+                <ChatView
+                  workflows={workflows}
+                  chatWorkflowId={chatWorkflowId}
+                  onSelectWorkflow={handleChatWorkflowSelect}
+                  conversationId={activeConversationId}
+                  runStatus={runStatus}
+                  executionLog={executionLog}
+                  askUserQuestions={askUserQuestions}
+                  onAskUserRespond={handleAskUserRespond}
+                  onRun={runWorkflow}
+                  onStop={stopRun}
+                />
               </section>
               <div className="split-view__right">
                 <section className="panel panel--canvas">
@@ -273,7 +252,7 @@ export default function App() {
             <div className="split-view">
               <section className="panel panel--wf-gen">
                 <div className="panel__header">生成工作流</div>
-                <WorkflowGenerator onGenerated={handleGenerated} generating={generating} />
+                <WorkflowGenerator onGenerated={handleGenerated} />
               </section>
               <div className="split-view__right">
                 <section className="panel panel--canvas">
@@ -296,7 +275,6 @@ export default function App() {
           <span>
             天枢 v{info.version} · Electron {info.electron} · Node {info.node} · {info.platform}
             {runStatus === 'running' ? ' · 执行中…' : ''}
-            {generating ? ' · 生成中…' : ''}
           </span>
         ) : <span>加载中…</span>}
       </footer>

@@ -1,9 +1,19 @@
-fix: 新建对话按钮无法回到对话页
+feat: 统一对话/执行视图 + 动态按钮 + ask_user 内联展示
 
-根因:setActiveView 在 try 块内,DB 调用失败时不执行;
-对话标题点击为空函数不切换视图。
+== ChatView 统一组件 ==
+- 替代之前的 ChatPanel + WorkflowRunner 条件渲染
+- 顶部始终显示工作流选择器(下拉:普通对话 / 工作流列表)
+- 选中工作流时:状态卡片(未开始/执行中/已成功/已失败)
+- 未选工作流时:正常聊天(消息流 + 流式 + 重试)
+- ask_user 问题表单内联显示在内容区(执行中遇到问题时弹出)
 
-修复:
-- handleNewConversation 先切视图再建对话(DB 失败也能回到对话页)
-- 对话标题可点击切换到对话页(与工作流标题行为一致)
-- + 按钮从 18px 加大到 24px,更容易点击
+== 动态按钮 ==
+- 无工作流:发送(聊天)
+- 选中工作流 + idle:▶ 执行(传入输入作为工作流参数)
+- 选中工作流 + running:⏹ 停止
+- 聊天中 + busy:⏹ 停止
+- Enter 触发当前模式的主操作
+
+== 清理 ==
+- WorkflowGenerator 自管理 loading 状态(不再依赖 App 传入 generating)
+- App 移除未使用的 handleGenerate / generating
