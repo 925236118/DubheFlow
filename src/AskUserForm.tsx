@@ -23,6 +23,11 @@ export default function AskUserForm({ questions: rawQuestions, onRespond }: AskU
     setAnswers((prev) => ({ ...prev, [id]: val }))
   }
 
+  // 是否有任何选项题(有选项才需要"都不符合"兜底)
+  const hasOptions = questions.some(
+    (q) => q.options && Array.isArray(q.options) && q.options.length > 0
+  )
+
   const handleSubmit = () => {
     if (fallback.trim()) {
       // 填了"都不符合" → 所有问题的答案统一为 fallback
@@ -76,17 +81,19 @@ export default function AskUserForm({ questions: rawQuestions, onRespond }: AskU
         )
       })}
 
-      {/* 统一的"都不符合我的想法"输入框 */}
-      <div className="ask-form__fallback">
-        <label className="ask-form__label">都不符合我的想法,输入:</label>
-        <textarea
-          className="ask-form__textarea"
-          placeholder="描述你的实际需求…"
-          rows={3}
-          value={fallback}
-          onChange={(e) => setFallback(e.target.value)}
-        />
-      </div>
+      {/* "都不符合我的想法"输入框(仅当有选项题时才显示) */}
+      {hasOptions && (
+        <div className="ask-form__fallback">
+          <label className="ask-form__label">都不符合我的想法,输入:</label>
+          <textarea
+            className="ask-form__textarea"
+            placeholder="描述你的实际需求…"
+            rows={3}
+            value={fallback}
+            onChange={(e) => setFallback(e.target.value)}
+          />
+        </div>
+      )}
 
       <button
         className="btn btn--primary ask-form__submit"

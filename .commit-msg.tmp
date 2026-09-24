@@ -1,6 +1,6 @@
-fix: collect 节点收集的值合并到 input 命名空间 + 显示实际值
+fix: ask_user/collect 不在日志显示原始 JSON + 表单自动滚动醒目
 
-1. collect 执行后 Object.assign(ctx.input, collected)
-   → 下游节点 {{ input.theme }} 正确解析为用户输入的值
-2. formatNodeOutput collect 分支:显示 field: value
-   而非仅 field 名
+1. formatNodeInput: ask_user/collect 节点返回空(问题已在表单展示)
+   额外过滤 question/options 字段不显示
+2. AskUserForm 出现时 scrollIntoView(自动滚到可见位置)
+3. 表单包装容器加蓝色醒目边框 + pulse 动画

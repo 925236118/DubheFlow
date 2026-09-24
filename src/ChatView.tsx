@@ -56,6 +56,14 @@ export default function ChatView({
   const popupRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
 
+  // ===== ask_user 表单出现时滚动到可见位置 =====
+  const askFormRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (askUserQuestions && askFormRef.current) {
+      askFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [askUserQuestions])
+
   // ===== 点击弹出外部关闭 =====
   useEffect(() => {
     if (!showPopup) return
@@ -280,7 +288,9 @@ export default function ChatView({
 
             {/* ask_user 交互表单 */}
             {running && askUserQuestions && (
-              <AskUserForm questions={askUserQuestions as never} onRespond={onAskUserRespond} />
+              <div ref={askFormRef} className="chat-view__ask-wrapper">
+                <AskUserForm questions={askUserQuestions as never} onRespond={onAskUserRespond} />
+              </div>
             )}
 
             {/* 执行日志 */}

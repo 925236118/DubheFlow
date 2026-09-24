@@ -325,11 +325,13 @@ function formatNodeOutput(_nodeType: string, output: Record<string, unknown>): s
   return keys.map(k => `${k}: ${truncate(String(output[k]))}`).join('\n')
 }
 
-function formatNodeInput(_nodeType: string, input: Record<string, unknown>): string {
+function formatNodeInput(nodeType: string, input: Record<string, unknown>): string {
+  // ask_user / collect:问题已在交互表单中展示,不在日志里重复
+  if (nodeType === 'ask_user' || nodeType === 'collect') return ''
   if (input.prompt) return `提示: ${truncate(String(input.prompt), 200)}`
   if (input.criteria) return `标准: ${truncate(String(input.criteria), 200)}`
   if (input.fields) return `字段: ${String(input.fields)}`
-  const keys = Object.keys(input).filter(k => k !== 'questions')
+  const keys = Object.keys(input).filter(k => !['questions', 'question', 'options'].includes(k))
   if (keys.length === 0) return ''
   return keys.map(k => `${k}: ${truncate(String(input[k]), 100)}`).join('\n')
 }
