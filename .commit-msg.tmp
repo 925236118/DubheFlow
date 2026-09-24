@@ -1,14 +1,4 @@
-fix: 无框窗口 + 工作流保存 + 弹出列表修复
+fix: ask_user questions 非数组导致崩溃
 
-1. 无框窗口:frame: false + 自定义窗口控制(—/▢/✕)
-   IPC: window:minimize / toggleMaximize / close
-   preload 暴露 window API,顶栏右侧控制按钮
-
-2. 工作流保存修复:spec.id 可能为 undefined 导致 INSERT 失败
-   加 fallback:wfId = spec.id || wf_<timestamp>
-   加 console.log 确认保存成功
-
-3. 弹出列表修复:
-   - popup 从 bar 外移到 bar 内部(absolute 定位正确)
-   - .chat-view__bar 加 position: relative
-   - top 改为 calc(100% + 4px) 正确显示在 bar 下方
+AI 生成的问题可能不是数组(对象/字符串),questions.every() 崩溃。
+AskUserForm 加 Array.isArray 防护 + 单个问题项格式校验。

@@ -13,7 +13,9 @@ interface AskUserFormProps {
   onRespond: (answers: Record<string, string>) => void
 }
 
-export default function AskUserForm({ questions, onRespond }: AskUserFormProps) {
+export default function AskUserForm({ questions: rawQuestions, onRespond }: AskUserFormProps) {
+  // 确保 questions 是数组(AI 可能生成对象或字符串)
+  const questions = Array.isArray(rawQuestions) ? rawQuestions : []
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [fallback, setFallback] = useState('')
 
@@ -41,10 +43,12 @@ export default function AskUserForm({ questions, onRespond }: AskUserFormProps) 
         <span className="ask-form__title">需要你的输入</span>
       </div>
 
-      {questions.map((q) => (
-        <div key={q.id} className="ask-form__question">
-          <label className="ask-form__label">{q.text}</label>
-          {q.options ? (
+      {questions.map((q, i) => {
+        if (!q || !q.id) return null
+        return (
+        <div key={q.id ?? i} className="ask-form__question">
+          <label className="ask-form__label">{q.text || q.id}</label>
+          {q.options && Array.isArray(q.options) ? (
             <div className="ask-form__options">
               {q.options.map((opt) => (
                 <label key={opt} className="ask-form__option">
@@ -69,7 +73,8 @@ export default function AskUserForm({ questions, onRespond }: AskUserFormProps) 
             />
           )}
         </div>
-      ))}
+        )
+      })}
 
       {/* 统一的"都不符合我的想法"输入框 */}
       <div className="ask-form__fallback">
