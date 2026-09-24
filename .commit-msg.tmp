@@ -1,9 +1,14 @@
-fix: 工作流保存刷新 + 侧边栏简化 + 弹出式工作流选择器
+fix: 无框窗口 + 工作流保存 + 弹出列表修复
 
-1. handleGenerated 加 loadWorkflows() 刷新,生成后工作流出现在列表中
-2. 侧边栏工作流区简化:只保留标题入口 + 新建按钮,不展开列表
-3. 对话页工作流选择器从 <select> 改为自定义栏 + 弹出列表:
-   - 未选:💬 普通对话 | 选择工作流
-   - 已选:💬 普通对话 | [工作流名] | 选择其他工作流
-   - 点"选择工作流"弹出工作流列表(含收藏/新建入口)
-   - 点外部自动关闭
+1. 无框窗口:frame: false + 自定义窗口控制(—/▢/✕)
+   IPC: window:minimize / toggleMaximize / close
+   preload 暴露 window API,顶栏右侧控制按钮
+
+2. 工作流保存修复:spec.id 可能为 undefined 导致 INSERT 失败
+   加 fallback:wfId = spec.id || wf_<timestamp>
+   加 console.log 确认保存成功
+
+3. 弹出列表修复:
+   - popup 从 bar 外移到 bar 内部(absolute 定位正确)
+   - .chat-view__bar 加 position: relative
+   - top 改为 calc(100% + 4px) 正确显示在 bar 下方

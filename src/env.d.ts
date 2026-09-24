@@ -57,6 +57,12 @@ interface DubheApi {
   getAppInfo: () => Promise<AppInfo>
   platform: string
 
+  window: {
+    minimize: () => Promise<void>
+    toggleMaximize: () => Promise<void>
+    close: () => Promise<void>
+  }
+
   provider: {
     list: () => Promise<ProviderInfo[]>
     keyStatus: (providerId: string) => Promise<{

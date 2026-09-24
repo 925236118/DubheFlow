@@ -11,6 +11,7 @@ export function createWindow(): BrowserWindow {
     minWidth: 1024,
     minHeight: 700,
     show: false,
+    frame: false,
     autoHideMenuBar: true,
     title: 'DubheFlow · 天枢',
     backgroundColor: '#0f1115',

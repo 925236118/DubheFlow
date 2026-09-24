@@ -72,12 +72,34 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
-  padding: 0 16px;
+  height: 40px;
+  padding: 0 8px 0 16px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
 }
+
+/* 窗口控制按钮(无框窗口) */
+.app__window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+.app__ctrl {
+  width: 36px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+}
+.app__ctrl:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.app__ctrl--close:hover { background: var(--danger); color: #fff; }
 
 .app__brand {
   display: flex;
@@ -1182,6 +1204,7 @@ body {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  position: relative;
 }
 .chat-view__select {
   flex: 1;
@@ -1309,9 +1332,9 @@ body {
 /* 工作流弹出列表 */
 .wf-popup {
   position: absolute;
-  top: 100%;
-  left: 12px;
-  right: 12px;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
   z-index: 50;
   margin-top: 4px;
   border: 1px solid var(--border);

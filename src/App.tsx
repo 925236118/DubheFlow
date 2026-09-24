@@ -200,6 +200,11 @@ export default function App() {
             <span className="app__subtitle">{spec ? spec.goal : 'Godot 游戏开发一体化工作站'}</span>
           </div>
         </div>
+        <div className="app__window-controls">
+          <button className="app__ctrl" title="最小化" onClick={() => window.dubhe.window.minimize()}>—</button>
+          <button className="app__ctrl" title="最大化" onClick={() => window.dubhe.window.toggleMaximize()}>▢</button>
+          <button className="app__ctrl app__ctrl--close" title="关闭" onClick={() => window.dubhe.window.close()}>✕</button>
+        </div>
       </header>
 
       <div className="app__content">

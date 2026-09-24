@@ -32,15 +32,18 @@ export function registerSpecIpc(): void {
     // 如果生成成功,存入 DB(草稿态 revision)
     if (result.spec) {
       try {
-        const wfId = result.spec.id
+        // 确保 id 和 name 有效(AI 可能不生成 id)
+        const wfId: string = result.spec.id || `wf_${Date.now()}`
+        const wfName: string = result.spec.goal || wfId
         const revId = `rev_${Date.now()}`
         prepare(
           `INSERT OR IGNORE INTO workflow (id, name, status, created_at) VALUES (?, ?, 'active', ?)`
-        ).run(wfId, result.spec.goal ?? wfId, Date.now())
+        ).run(wfId, wfName, Date.now())
         prepare(
           `INSERT INTO workflow_revision (id, workflow_id, version, spec_json, state, created_at)
-           VALUES (?, ?, ?, ?, 'draft', ?)`
-        ).run(revId, wfId, 1, JSON.stringify(result.spec), Date.now())
+           VALUES (?, ?, 1, ?, 'draft', ?)`
+        ).run(revId, wfId, JSON.stringify(result.spec), Date.now())
+        console.log(`[db] 工作流已保存: ${wfId} / ${wfName}`)
       } catch (err) {
         console.error('[db] 存储 spec 失败:', err)
       }

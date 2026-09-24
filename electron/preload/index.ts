@@ -25,6 +25,13 @@ const api = {
   getAppInfo: () => ipcRenderer.invoke('app:info'),
   platform: process.platform,
 
+  // 窗口控制(无框窗口)
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('window:toggleMaximize'),
+    close: () => ipcRenderer.invoke('window:close')
+  },
+
   // ===== Provider =====
   provider: {
     list: (): Promise<ProviderInfo[]> => ipcRenderer.invoke('provider:list'),
